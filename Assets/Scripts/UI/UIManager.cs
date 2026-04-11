@@ -140,6 +140,23 @@ public class UIManager : MonoBehaviour
         // Gem letter on icon
         AddIconLabel(gemIcon.transform, "G", Color.black);
 
+        // --- Gem Text ---
+        GameObject gemObj = new GameObject("GemText_TopBar");
+        gemObj.transform.SetParent(topBar.transform, false);
+        gemText = gemObj.AddComponent<TextMeshProUGUI>();
+        gemText.text = "0";
+        gemText.fontSize = 28;
+        gemText.fontStyle = FontStyles.Bold;
+        gemText.color = new Color(0.3f, 0.95f, 1f);
+        gemText.alignment = TextAlignmentOptions.Left | TextAlignmentOptions.Midline;
+
+        RectTransform gemRt = gemObj.GetComponent<RectTransform>();
+        gemRt.anchorMin = new Vector2(0f, 0.5f);
+        gemRt.anchorMax = new Vector2(0f, 0.5f);
+        gemRt.pivot = new Vector2(0f, 0.5f);
+        gemRt.anchoredPosition = new Vector2(248f, 0f); // Positioned to the right of GemIcon (200 + offset)
+        gemRt.sizeDelta = new Vector2(100f, 50f);
+
         // --- XP Bar (Bottom of TopBar) ---
         GameObject xpBarBg = new GameObject("XPBar_Bg");
         xpBarBg.transform.SetParent(topBar.transform, false);

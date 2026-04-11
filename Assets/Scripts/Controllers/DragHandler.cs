@@ -107,6 +107,8 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
                 // Award XP using cached tier
                 AwardMergeXP(originalTier);
+
+                GridManager.Instance.SaveGridState();
             }
         }
     }
@@ -149,6 +151,8 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
             _slot.ClearSlot();
             _dropHandled = true;
+
+            GridManager.Instance.SaveGridState();
         }
         // If nearest slot has a different crop, just snap back to original position (do nothing)
     }

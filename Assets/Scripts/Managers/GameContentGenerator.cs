@@ -8,6 +8,7 @@ using System.Collections.Generic;
 public class GameContentGenerator : MonoBehaviour
 {
     public static GameContentGenerator Instance { get; private set; }
+    public List<CropData> AllCrops = new List<CropData>();
     private Sprite _defaultSprite;
 
     private void Awake()
@@ -24,6 +25,12 @@ public class GameContentGenerator : MonoBehaviour
         }
     }
     
+    
+    public CropData GetCropByTier(CropTier tier)
+    {
+        return AllCrops.Find(c => c.tier == tier);
+    }
+
     private void EnsureDefaultSprite()
     {
         if (_defaultSprite != null) return;
@@ -42,7 +49,7 @@ public class GameContentGenerator : MonoBehaviour
         EnsureDefaultSprite();
         
         // 1. Generate Crops (T1 to T5)
-        List<CropData> crops = new List<CropData>();
+        AllCrops.Clear();
         string[] names = { "Havuç", "Domates", "Mısır", "Balkabağı", "Karpuz" };
         Color[] colors = { Color.orange, Color.red, Color.yellow, new Color(1, 0.5f, 0), Color.green };
 
@@ -55,7 +62,7 @@ public class GameContentGenerator : MonoBehaviour
             c.icon = _defaultSprite;
             c.tier = (CropTier)i;
             c.coinPerTick = (i + 1) * 2f;
-            crops.Add(c);
+            AllCrops.Add(c);
             
             if (prev != null) prev.nextLevelCrop = c;
             prev = c;
@@ -72,11 +79,11 @@ public class GameContentGenerator : MonoBehaviour
         incomeBoost.icon = _defaultSprite;
 
         // 3. Generate Chests
-        CreateChest("Günlük Sandık", 0, CurrencyType.Coin, CrateRarity.Daily, crops[0], 90, incomeBoost, 10);
-        CreateChest("Bronz Sandık", 10, CurrencyType.Coin, CrateRarity.Bronze, crops[0], 100);
-        CreateChest("Gümüş Sandık", 50, CurrencyType.Coin, CrateRarity.Silver, crops[0], 70, crops[1], 30);
-        CreateChest("Altın Sandık", 20, CurrencyType.Gem, CrateRarity.Gold, crops[1], 60, crops[2], 30, incomeBoost, 10);
-        CreateChest("Elmas Sandık", 100, CurrencyType.Gem, CrateRarity.Diamond, crops[2], 50, crops[3], 40, crops[4], 10);
+        CreateChest("Günlük Sandık", 0, CurrencyType.Coin, CrateRarity.Daily, AllCrops[0], 90, incomeBoost, 10);
+        CreateChest("Bronz Sandık", 10, CurrencyType.Coin, CrateRarity.Bronze, AllCrops[0], 100);
+        CreateChest("Gümüş Sandık", 50, CurrencyType.Coin, CrateRarity.Silver, AllCrops[0], 70, AllCrops[1], 30);
+        CreateChest("Altın Sandık", 20, CurrencyType.Gem, CrateRarity.Gold, AllCrops[1], 60, AllCrops[2], 30, incomeBoost, 10);
+        CreateChest("Elmas Sandık", 100, CurrencyType.Gem, CrateRarity.Diamond, AllCrops[2], 50, AllCrops[3], 40, AllCrops[4], 10);
     }
 
     private void CreateChest(string name, int cost, CurrencyType cur, CrateRarity rarity, params object[] dropsAndWeights)

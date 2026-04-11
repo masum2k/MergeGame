@@ -34,6 +34,8 @@ public class GridManager : MonoBehaviour
         {
             SlotUnlockManager.Instance.OnSlotUnlocked += OnSlotUnlocked;
         }
+
+        LoadGridState();
     }
 
     private void OnDestroy()
@@ -258,5 +260,48 @@ public class GridManager : MonoBehaviour
         }
 
         return nearest;
+    }
+
+    public void SaveGridState()
+    {
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        foreach (var slot in GetAllSlots())
+        {
+            if (!slot.IsEmpty)
+            {
+                // Format: x,y,tier
+                sb.Append($"{slot.X},{slot.Y},{(int)slot.CurrentCrop.tier};");
+            }
+        }
+        PlayerPrefs.SetString("GridState", sb.ToString());
+        PlayerPrefs.Save();
+    }
+
+    public void LoadGridState()
+    {
+        if (!PlayerPrefs.HasKey("GridState")) return;
+        string data = PlayerPrefs.GetString("GridState");
+        if (string.IsNullOrEmpty(data)) return;
+
+        string[] entries = data.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);
+        foreach (string entry in entries)
+        {
+            string[] parts = entry.Split(',');
+            if (parts.Length == 3)
+            {
+                int x = int.Parse(parts[0]);
+                int y = int.Parse(parts[1]);
+                CropTier tier = (CropTier)int.Parse(parts[2]);
+
+                if (x >= 0 && x < columns && y >= 0 && y < rows)
+                {
+                    CropData crop = GameContentGenerator.Instance.GetCropByTier(tier);
+                    if (crop != null)
+                    {
+                        _grid[x, y].SetCrop(crop);
+                    }
+                }
+            }
+        }
     }
 }

@@ -30,14 +30,35 @@ public class CurrencyManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+
+        Load();
     }
 
     private void Start()
     {
-        // Give 100 coins at start for testing purposes
-        AddCoin(100);
-        // Give 10 gems at start for testing
-        AddGem(10);
+        if (!PlayerPrefs.HasKey("PlayerCoin"))
+        {
+            // Give starting values only for first run
+            Debug.Log("<color=cyan>[CurrencyManager] First run detected! Giving starter 100 Coins and 10 Gems.</color>");
+            AddCoin(100);
+            AddGem(10);
+        }
+    }
+
+    private void Save()
+    {
+        PlayerPrefs.SetInt("PlayerCoin", Coin);
+        PlayerPrefs.SetInt("PlayerGem", Gem);
+        PlayerPrefs.Save();
+    }
+
+    private void Load()
+    {
+        Coin = PlayerPrefs.GetInt("PlayerCoin", 0);
+        Gem = PlayerPrefs.GetInt("PlayerGem", 0);
+        
+        OnCoinChanged?.Invoke(Coin);
+        OnGemChanged?.Invoke(Gem);
     }
 
     /// <summary>
@@ -50,6 +71,7 @@ public class CurrencyManager : MonoBehaviour
 
         Coin += amount;
         OnCoinChanged?.Invoke(Coin);
+        Save();
     }
 
     /// <summary>
@@ -65,6 +87,7 @@ public class CurrencyManager : MonoBehaviour
         {
             Coin -= amount;
             OnCoinChanged?.Invoke(Coin);
+            Save();
             return true;
         }
 
@@ -81,6 +104,7 @@ public class CurrencyManager : MonoBehaviour
 
         Gem += amount;
         OnGemChanged?.Invoke(Gem);
+        Save();
     }
 
     /// <summary>
@@ -96,6 +120,7 @@ public class CurrencyManager : MonoBehaviour
         {
             Gem -= amount;
             OnGemChanged?.Invoke(Gem);
+            Save();
             return true;
         }
 

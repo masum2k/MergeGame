@@ -37,6 +37,41 @@ public class SlotUnlockManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+
+        Load();
+    }
+
+    private void Save()
+    {
+        List<string> coords = new List<string>();
+        foreach (var pos in _unlockedSlots)
+        {
+            coords.Add($"{pos.x},{pos.y}");
+        }
+        string data = string.Join(";", coords);
+        PlayerPrefs.SetString("UnlockedSlots", data);
+        PlayerPrefs.Save();
+    }
+
+    private void Load()
+    {
+        if (!PlayerPrefs.HasKey("UnlockedSlots")) return;
+
+        string data = PlayerPrefs.GetString("UnlockedSlots");
+        if (string.IsNullOrEmpty(data)) return;
+
+        string[] pairs = data.Split(';');
+        foreach (string pair in pairs)
+        {
+            string[] parts = pair.Split(',');
+            if (parts.Length == 2)
+            {
+                if (int.TryParse(parts[0], out int x) && int.TryParse(parts[1], out int y))
+                {
+                    _unlockedSlots.Add(new Vector2Int(x, y));
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -44,6 +79,10 @@ public class SlotUnlockManager : MonoBehaviour
     /// </summary>
     public void Initialize(int startCol, int startRow, int unlockCols, int unlockRows)
     {
+        // If we already have loaded slots, don't clear and re-initialize the starting area
+        // uniquely, but rather just ensure the starting area IS included if it's the first time.
+        if (_unlockedSlots.Count > 0) return;
+
         _unlockedSlots.Clear();
 
         // Unlock the starting rectangle
@@ -60,6 +99,8 @@ public class SlotUnlockManager : MonoBehaviour
             startCol + unlockCols * 0.5f,
             startRow + unlockRows * 0.5f
         );
+
+        Save();
     }
 
     /// <summary>
@@ -126,6 +167,7 @@ public class SlotUnlockManager : MonoBehaviour
         {
             _unlockedSlots.Add(coord);
             OnSlotUnlocked?.Invoke(x, y);
+            Save();
             return true;
         }
 

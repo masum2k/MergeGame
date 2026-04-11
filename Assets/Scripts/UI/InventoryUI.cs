@@ -395,6 +395,7 @@ public class InventoryUI : MonoBehaviour
             if (InventoryManager.Instance.RemoveItem(crop))
             {
                 targetSlot.SetCrop(crop);
+                if (GridManager.Instance != null) GridManager.Instance.SaveGridState();
             }
         }
         else if (item is BoostData boost)
