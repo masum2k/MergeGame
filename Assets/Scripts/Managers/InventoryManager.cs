@@ -8,7 +8,23 @@ using UnityEngine;
 /// </summary>
 public class InventoryManager : MonoBehaviour
 {
-    public static InventoryManager Instance { get; private set; }
+    public static InventoryManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<InventoryManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("InventoryManager_Auto");
+                    _instance = go.AddComponent<InventoryManager>();
+                }
+            }
+            return _instance;
+        }
+    }
+    private static InventoryManager _instance;
 
     /// <summary>
     /// Fired whenever any item is added or removed. Listeners should refresh their UI.
@@ -26,12 +42,13 @@ public class InventoryManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null)
+        if (_instance == null)
         {
-            Instance = this;
+            _instance = this;
+            transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
         }
-        else
+        else if (_instance != this)
         {
             Destroy(gameObject);
         }

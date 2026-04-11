@@ -1,39 +1,49 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Zero-Touch Inventory UI. Shows a popup when the player clicks on an empty grid slot.
-/// Displays all owned crops as buttons. Clicking one places it on the target slot.
+/// Modern Grid-based Inventory UI with Tabs and Filtering.
+/// All generated at runtime (Zero-Touch).
 /// </summary>
 public class InventoryUI : MonoBehaviour
 {
-    /// <summary>
-    /// Singleton-like static reference so GridSlot can call InventoryUI.Show(slot)
-    /// </summary>
     public static InventoryUI Instance { get; private set; }
 
+    private enum Tab { Besin, Boost, Item }
+    private enum SortMode { Tier, Count, Name }
+
+    [Header("State")]
+    private Tab _currentTab = Tab.Besin;
+    private SortMode _currentSort = SortMode.Tier;
+
+    [Header("UI Elements")]
     private GameObject inventoryPanel;
     private Transform itemContainer;
-    private TextMeshProUGUI titleText;
     private GridSlot targetSlot;
+    private TextMeshProUGUI filterBtnText;
 
-    // Keep references to dynamically created buttons so we can clean them up
-    private List<GameObject> itemButtons = new List<GameObject>();
+    private List<GameObject> itemCards = new List<GameObject>();
+    private Dictionary<Tab, Button> tabButtons = new Dictionary<Tab, Button>();
 
     private void Awake()
     {
-        Instance = this;
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+        }
     }
 
     private void Start()
     {
         Canvas canvas = GetComponentInParent<Canvas>();
-        if (canvas == null)
-        {
-            canvas = FindAnyObjectByType<Canvas>();
-        }
+        if (canvas == null) canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
         BuildInventoryPanel(canvas.transform);
@@ -44,261 +54,332 @@ public class InventoryUI : MonoBehaviour
     // =============================================
     private void BuildInventoryPanel(Transform parent)
     {
-        // Panel background (fullscreen overlay)
-        inventoryPanel = new GameObject("InventoryPanel_Auto");
+        // 1. Overlay Background (Full screen dimming)
+        inventoryPanel = new GameObject("InventoryPanel_Auto", typeof(RectTransform));
         inventoryPanel.transform.SetParent(parent, false);
-
-        Image panelBg = inventoryPanel.AddComponent<Image>();
-        panelBg.color = new Color(0.05f, 0.1f, 0.2f, 0.95f); // Dark blue
-
+        Image overlayImg = inventoryPanel.AddComponent<Image>();
+        overlayImg.color = new Color(0, 0, 0, 0.7f); // Dark dimming overlay
         RectTransform panelRt = inventoryPanel.GetComponent<RectTransform>();
-        panelRt.anchorMin = Vector2.zero;
-        panelRt.anchorMax = Vector2.one;
-        panelRt.offsetMin = Vector2.zero;
-        panelRt.offsetMax = Vector2.zero;
+        panelRt.anchorMin = Vector2.zero; panelRt.anchorMax = Vector2.one;
+        panelRt.offsetMin = Vector2.zero; panelRt.offsetMax = Vector2.zero;
 
-        // ---- Title ----
-        GameObject titleObj = new GameObject("Title");
-        titleObj.transform.SetParent(inventoryPanel.transform, false);
-        titleText = titleObj.AddComponent<TextMeshProUGUI>();
-        titleText.text = "Envanter — Besin Seç";
-        titleText.fontSize = 36;
-        titleText.color = Color.white;
-        titleText.alignment = TextAlignmentOptions.Center;
-        titleText.fontStyle = FontStyles.Bold;
+        // 2. The Pop-up Window
+        GameObject window = new GameObject("Window", typeof(RectTransform));
+        window.transform.SetParent(inventoryPanel.transform, false);
+        Image windowBg = window.AddComponent<Image>();
+        windowBg.color = new Color(0.06f, 0.08f, 0.15f, 1f);
+        RectTransform winRt = window.GetComponent<RectTransform>();
+        winRt.anchorMin = new Vector2(0.1f, 0.15f); winRt.anchorMax = new Vector2(0.9f, 0.85f);
+        winRt.offsetMin = Vector2.zero; winRt.offsetMax = Vector2.zero;
 
-        RectTransform titleRt = titleObj.GetComponent<RectTransform>();
-        titleRt.anchorMin = new Vector2(0.5f, 1f);
-        titleRt.anchorMax = new Vector2(0.5f, 1f);
-        titleRt.pivot = new Vector2(0.5f, 1f);
-        titleRt.anchoredPosition = new Vector2(0f, -30f);
-        titleRt.sizeDelta = new Vector2(500f, 60f);
+        // 3. Tab Bar (Inside Window)
+        GameObject tabBar = new GameObject("TabBar", typeof(RectTransform));
+        tabBar.transform.SetParent(window.transform, false);
+        RectTransform tabRt = tabBar.GetComponent<RectTransform>();
+        tabRt.anchorMin = new Vector2(0f, 1f); tabRt.anchorMax = new Vector2(1f, 1f);
+        tabRt.pivot = new Vector2(0.5f, 1f);
+        tabRt.anchoredPosition = new Vector2(0f, -10f);
+        tabRt.sizeDelta = new Vector2(-40f, 50f);
 
-        // ---- Item Container (vertical list area) ----
-        GameObject containerObj = new GameObject("ItemContainer");
-        containerObj.transform.SetParent(inventoryPanel.transform, false);
+        HorizontalLayoutGroup hlg = tabBar.AddComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 8f; hlg.childForceExpandWidth = true; hlg.childControlWidth = true;
 
-        RectTransform containerRt = containerObj.AddComponent<RectTransform>();
-        containerRt.anchorMin = new Vector2(0.1f, 0.15f);
-        containerRt.anchorMax = new Vector2(0.9f, 0.85f);
-        containerRt.offsetMin = Vector2.zero;
-        containerRt.offsetMax = Vector2.zero;
+        tabButtons ??= new Dictionary<Tab, Button>();
+        foreach (Tab t in System.Enum.GetValues(typeof(Tab)))
+        {
+            Tab capturedTab = t;
+            tabButtons[t] = CreateTabButton(tabBar.transform, t.ToString(), () => SetTab(capturedTab));
+        }
 
-        // Add a VerticalLayoutGroup for clean layout
-        VerticalLayoutGroup vlg = containerObj.AddComponent<VerticalLayoutGroup>();
-        vlg.spacing = 10f;
-        vlg.childAlignment = TextAnchor.UpperCenter;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = false;
+        // 4. Filter/Sort Button
+        GameObject filterObj = new GameObject("FilterButton", typeof(RectTransform));
+        filterObj.transform.SetParent(window.transform, false);
+        Button fBtn = filterObj.AddComponent<Button>();
+        Image fImg = filterObj.AddComponent<Image>();
+        fImg.color = new Color(0.2f, 0.3f, 0.5f, 0.8f);
+        RectTransform fRt = filterObj.GetComponent<RectTransform>();
+        fRt.anchorMin = new Vector2(1f, 1f); fRt.anchorMax = new Vector2(1f, 1f);
+        fRt.pivot = new Vector2(1f, 1f);
+        fRt.anchoredPosition = new Vector2(-15f, -70f);
+        fRt.sizeDelta = new Vector2(120f, 35f);
 
-        // Add ContentSizeFitter to allow scrolling if needed
-        ContentSizeFitter csf = containerObj.AddComponent<ContentSizeFitter>();
+        GameObject fTextObj = new GameObject("Text", typeof(RectTransform));
+        fTextObj.transform.SetParent(filterObj.transform, false);
+        filterBtnText = fTextObj.AddComponent<TextMeshProUGUI>();
+        filterBtnText.fontSize = 14;
+        filterBtnText.alignment = TextAlignmentOptions.Center;
+        filterBtnText.text = "Sırala: " + _currentSort.ToString();
+        RectTransform ftRt = fTextObj.GetComponent<RectTransform>();
+        ftRt.anchorMin = Vector2.zero; ftRt.anchorMax = Vector2.one; 
+        ftRt.offsetMin = Vector2.zero; ftRt.offsetMax = Vector2.zero;
+
+        fBtn.onClick.AddListener(CycleSortMode);
+
+        // 5. Close Button
+        GameObject closeObj = new GameObject("CloseX", typeof(RectTransform));
+        closeObj.transform.SetParent(window.transform, false);
+        Button cBtn = closeObj.AddComponent<Button>();
+        Image cImg = closeObj.AddComponent<Image>();
+        cImg.color = new Color(0.8f, 0.2f, 0.2f, 1f);
+        RectTransform cRt = closeObj.GetComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(1f, 1f); cRt.anchorMax = new Vector2(1f, 1f);
+        cRt.pivot = new Vector2(0.5f, 0.5f);
+        cRt.anchoredPosition = new Vector2(15f, 15f);
+        cRt.sizeDelta = new Vector2(35f, 35f);
+
+        GameObject cTextObj = new GameObject("Text", typeof(RectTransform));
+        cTextObj.transform.SetParent(closeObj.transform, false);
+        TextMeshProUGUI cText = cTextObj.AddComponent<TextMeshProUGUI>();
+        cText.text = "X"; cText.fontSize = 20; cText.alignment = TextAlignmentOptions.Center;
+        RectTransform ctRt = cTextObj.GetComponent<RectTransform>();
+        ctRt.anchorMin = Vector2.zero; ctRt.anchorMax = Vector2.one; 
+        ctRt.offsetMin = Vector2.zero; ctRt.offsetMax = Vector2.zero;
+
+        cBtn.onClick.AddListener(Hide);
+
+        // 6. Scrollable Grid Area
+        GameObject scrollObj = new GameObject("ScrollArea", typeof(RectTransform));
+        scrollObj.transform.SetParent(window.transform, false);
+        RectTransform scrollRt = scrollObj.GetComponent<RectTransform>();
+        scrollRt.anchorMin = new Vector2(0.02f, 0.02f); scrollRt.anchorMax = new Vector2(0.98f, 0.8f);
+        scrollRt.offsetMin = Vector2.zero; scrollRt.offsetMax = Vector2.zero;
+
+        ScrollRect sr = scrollObj.AddComponent<ScrollRect>();
+        sr.horizontal = false; sr.vertical = true;
+        
+        GameObject viewportObj = new GameObject("Viewport", typeof(RectTransform));
+        viewportObj.transform.SetParent(scrollObj.transform, false);
+        viewportObj.AddComponent<RectMask2D>();
+        RectTransform viewRt = viewportObj.GetComponent<RectTransform>();
+        viewRt.anchorMin = Vector2.zero; viewRt.anchorMax = Vector2.one;
+        viewRt.offsetMin = Vector2.zero; viewRt.offsetMax = Vector2.zero;
+        sr.viewport = viewRt;
+
+        GameObject gridObj = new GameObject("Grid", typeof(RectTransform));
+        gridObj.transform.SetParent(viewportObj.transform, false);
+        RectTransform gridRt = gridObj.GetComponent<RectTransform>();
+        gridRt.anchorMin = new Vector2(0f, 1f); gridRt.anchorMax = new Vector2(1f, 1f);
+        gridRt.pivot = new Vector2(0.5f, 1f);
+        gridRt.anchoredPosition = Vector2.zero;
+        gridRt.sizeDelta = new Vector2(0f, 0f);
+        sr.content = gridRt;
+
+        GridLayoutGroup glg = gridObj.AddComponent<GridLayoutGroup>();
+        glg.cellSize = new Vector2(120f, 120f);
+        glg.spacing = new Vector2(10f, 10f);
+        glg.padding = new RectOffset(10, 10, 10, 10);
+        glg.childAlignment = TextAnchor.UpperCenter;
+
+        ContentSizeFitter csf = gridObj.AddComponent<ContentSizeFitter>();
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        itemContainer = containerObj.transform;
+        itemContainer = gridObj.transform;
+        itemCards ??= new List<GameObject>();
 
-        // ---- Empty Inventory Message (hidden by default, shown when empty) ----
-        // Will be managed in PopulateItems()
-
-        // ---- Close Button ----
-        GameObject closeBtnObj = new GameObject("CloseButton");
-        closeBtnObj.transform.SetParent(inventoryPanel.transform, false);
-
-        Image closeBtnImg = closeBtnObj.AddComponent<Image>();
-        closeBtnImg.color = new Color(0.8f, 0.2f, 0.2f, 1f);
-
-        Button closeBtn = closeBtnObj.AddComponent<Button>();
-        closeBtn.targetGraphic = closeBtnImg;
-
-        RectTransform closeBtnRt = closeBtnObj.GetComponent<RectTransform>();
-        closeBtnRt.anchorMin = new Vector2(0.5f, 0f);
-        closeBtnRt.anchorMax = new Vector2(0.5f, 0f);
-        closeBtnRt.pivot = new Vector2(0.5f, 0f);
-        closeBtnRt.anchoredPosition = new Vector2(0f, 20f);
-        closeBtnRt.sizeDelta = new Vector2(200f, 50f);
-
-        GameObject closeLabelObj = new GameObject("Label");
-        closeLabelObj.transform.SetParent(closeBtnObj.transform, false);
-        TextMeshProUGUI closeLabel = closeLabelObj.AddComponent<TextMeshProUGUI>();
-        closeLabel.text = "X Kapat";
-        closeLabel.fontSize = 24;
-        closeLabel.color = Color.white;
-        closeLabel.alignment = TextAlignmentOptions.Center;
-
-        RectTransform closeLabelRt = closeLabelObj.GetComponent<RectTransform>();
-        closeLabelRt.anchorMin = Vector2.zero;
-        closeLabelRt.anchorMax = Vector2.one;
-        closeLabelRt.offsetMin = Vector2.zero;
-        closeLabelRt.offsetMax = Vector2.zero;
-
-        closeBtn.onClick.AddListener(Hide);
-
-        // Start hidden
         inventoryPanel.SetActive(false);
+        UpdateTabVisuals();
+    }
+
+    private Button CreateTabButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
+    {
+        GameObject obj = new GameObject(label + "_Tab", typeof(RectTransform));
+        obj.transform.SetParent(parent, false);
+        Image img = obj.AddComponent<Image>();
+        img.color = new Color(0.2f, 0.3f, 0.5f, 1f);
+        Button btn = obj.AddComponent<Button>();
+        btn.onClick.AddListener(onClick);
+
+        GameObject txtObj = new GameObject("Text", typeof(RectTransform));
+        txtObj.transform.SetParent(obj.transform, false);
+        TextMeshProUGUI txt = txtObj.AddComponent<TextMeshProUGUI>();
+        txt.text = label; txt.fontSize = 20; txt.alignment = TextAlignmentOptions.Center;
+        RectTransform trt = txtObj.GetComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+
+        return btn;
     }
 
     // =============================================
-    //  PUBLIC API
+    //  LOGIC
     // =============================================
 
-    /// <summary>
-    /// Shows the inventory panel, targeting a specific grid slot for placement.
-    /// </summary>
-    /// <summary>
-    /// Shows the inventory panel.
-    /// If slot is provided, clicking an item places it on that slot.
-    /// If slot is null, opens in view-only mode (just browsing).
-    /// </summary>
     public void Show(GridSlot slot)
     {
+        if (inventoryPanel == null)
+        {
+            Canvas canvas = GetComponentInParent<Canvas>();
+            if (canvas == null) canvas = FindAnyObjectByType<Canvas>();
+            if (canvas != null) BuildInventoryPanel(canvas.transform);
+        }
+
+        if (inventoryPanel == null) return;
+
         targetSlot = slot;
-
-        // Update title based on mode
-        if (titleText != null)
-        {
-            titleText.text = slot != null 
-                ? "Envanter — Besin Seç" 
-                : "Envanter";
-        }
-
         PopulateItems();
-
-        if (inventoryPanel != null)
-        {
-            inventoryPanel.SetActive(true);
-        }
+        inventoryPanel.SetActive(true);
     }
 
-    /// <summary>
-    /// Hides the inventory panel.
-    /// </summary>
     public void Hide()
     {
         targetSlot = null;
-        if (inventoryPanel != null)
+        if (inventoryPanel != null) inventoryPanel.SetActive(false);
+    }
+
+    private void SetTab(Tab tab)
+    {
+        _currentTab = tab;
+        UpdateTabVisuals();
+        PopulateItems();
+    }
+
+    private void UpdateTabVisuals()
+    {
+        foreach (var kvp in tabButtons)
         {
-            inventoryPanel.SetActive(false);
+            if (kvp.Value == null || kvp.Value.targetGraphic == null) continue;
+            kvp.Value.targetGraphic.color = (kvp.Key == _currentTab) 
+                ? new Color(0.3f, 0.6f, 1f, 1f) 
+                : new Color(0.15f, 0.2f, 0.3f, 1f);
         }
     }
 
-    // =============================================
-    //  ITEM POPULATION
-    // =============================================
+    private void CycleSortMode()
+    {
+        _currentSort = (SortMode)(((int)_currentSort + 1) % System.Enum.GetValues(typeof(SortMode)).Length);
+        if (filterBtnText != null) filterBtnText.text = "Sırala: " + _currentSort.ToString();
+        PopulateItems();
+    }
+
+    private void ClearItems()
+    {
+        if (itemCards == null) itemCards = new List<GameObject>();
+        for (int i = itemCards.Count - 1; i >= 0; i--)
+        {
+            if (itemCards[i] != null)
+            {
+                if (Application.isPlaying) Destroy(itemCards[i]);
+                else DestroyImmediate(itemCards[i]);
+            }
+        }
+        itemCards.Clear();
+        
+        // Final safety cleanup of any stray children in container
+        if (itemContainer != null)
+        {
+            for (int i = itemContainer.childCount - 1; i >= 0; i--)
+            {
+                if (Application.isPlaying) Destroy(itemContainer.GetChild(i).gameObject);
+                else DestroyImmediate(itemContainer.GetChild(i).gameObject);
+            }
+        }
+    }
 
     private void PopulateItems()
     {
-        // Clear previous buttons
-        foreach (var btn in itemButtons)
-        {
-            Destroy(btn);
-        }
-        itemButtons.Clear();
+        ClearItems();
 
         if (InventoryManager.Instance == null) return;
+        List<CropData> crops = InventoryManager.Instance.GetAllOwnedCrops();
 
-        List<CropData> ownedCrops = InventoryManager.Instance.GetAllOwnedCrops();
-
-        if (ownedCrops.Count == 0)
+        // Filter by Tab
+        if (_currentTab == Tab.Besin)
         {
-            // Show "empty" message
-            CreateItemRow("Envanterin boş! Marketten sandık aç.", Color.gray, null);
-            return;
+            // Only crops currently supported in this view
+        }
+        else
+        {
+            // Boost and Item tabs are currently empty but won't cause early exit
+            crops.Clear();
         }
 
-        foreach (var crop in ownedCrops)
+        // Sorting
+        switch (_currentSort)
         {
-            int count = InventoryManager.Instance.GetCount(crop.cropName);
-            string tierTag = crop.tier.ToString();
-            string label = $"{crop.cropName} [{tierTag}] x{count}";
+            case SortMode.Tier:
+                crops = crops.OrderByDescending(c => c.tier).ThenBy(c => c.cropName).ToList();
+                break;
+            case SortMode.Count:
+                crops = crops.OrderByDescending(c => InventoryManager.Instance.GetCount(c.cropName)).ThenBy(c => c.cropName).ToList();
+                break;
+            case SortMode.Name:
+                crops = crops.OrderBy(c => c.cropName).ToList();
+                break;
+        }
 
-            // Use the crop's color for the text
-            Color textColor = Color.Lerp(crop.cropColor, Color.white, 0.3f);
-
-            CreateItemRow(label, textColor, crop);
+        foreach (var crop in crops)
+        {
+            CreateItemCard(crop);
         }
     }
 
-    private void CreateItemRow(string label, Color textColor, CropData cropToPlace)
+    private void CreateItemCard(CropData crop)
     {
-        GameObject rowObj = new GameObject("InventoryItem");
-        rowObj.transform.SetParent(itemContainer, false);
+        GameObject card = new GameObject("ItemCard_" + crop.cropName, typeof(RectTransform));
+        card.transform.SetParent(itemContainer, false);
+        Image bg = card.AddComponent<Image>();
+        bg.color = new Color(0.15f, 0.2f, 0.3f, 0.9f);
 
-        // Row background
-        Image rowBg = rowObj.AddComponent<Image>();
-        rowBg.color = new Color(0.15f, 0.2f, 0.3f, 0.8f);
+        // Icon
+        GameObject iconObj = new GameObject("Icon", typeof(RectTransform));
+        iconObj.transform.SetParent(card.transform, false);
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.sprite = crop.cropSprite;
+        iconImg.color = crop.cropColor;
+        RectTransform iconRt = iconObj.GetComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0.5f, 0.5f); iconRt.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRt.sizeDelta = new Vector2(80f, 80f);
 
-        // LayoutElement for consistent sizing
-        LayoutElement le = rowObj.AddComponent<LayoutElement>();
-        le.preferredHeight = 60f;
-        le.minHeight = 60f;
+        // Tier
+        GameObject tierObj = new GameObject("Tier", typeof(RectTransform));
+        tierObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI tierTxt = tierObj.AddComponent<TextMeshProUGUI>();
+        tierTxt.text = "T" + ((int)crop.tier + 1);
+        tierTxt.fontSize = 20; tierTxt.fontStyle = FontStyles.Bold;
+        tierTxt.color = new Color(1f, 1f, 1f, 0.5f);
+        tierTxt.alignment = TextAlignmentOptions.TopRight;
+        RectTransform tierRt = tierObj.GetComponent<RectTransform>();
+        tierRt.anchorMin = Vector2.zero; tierRt.anchorMax = Vector2.one;
+        tierRt.offsetMin = new Vector2(5, 5); tierRt.offsetMax = new Vector2(-5, -5);
 
-        // Color swatch (small square showing crop color)
-        if (cropToPlace != null)
+        // Count
+        GameObject countObj = new GameObject("Count", typeof(RectTransform));
+        countObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI countTxt = countObj.AddComponent<TextMeshProUGUI>();
+        countTxt.text = "x" + InventoryManager.Instance.GetCount(crop.cropName);
+        countTxt.fontSize = 20; countTxt.fontStyle = FontStyles.Bold;
+        countTxt.alignment = TextAlignmentOptions.BottomRight;
+        RectTransform countRt = countObj.GetComponent<RectTransform>();
+        countRt.anchorMin = Vector2.zero; countRt.anchorMax = Vector2.one;
+        countRt.offsetMin = new Vector2(5, 5); countRt.offsetMax = new Vector2(-5, -5);
+
+        // Name
+        GameObject nameObj = new GameObject("Name", typeof(RectTransform));
+        nameObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI nameTxt = nameObj.AddComponent<TextMeshProUGUI>();
+        nameTxt.text = crop.cropName;
+        nameTxt.fontSize = 14; nameTxt.alignment = TextAlignmentOptions.Bottom;
+        RectTransform nameRt = nameObj.GetComponent<RectTransform>();
+        nameRt.anchorMin = new Vector2(0, 0); nameRt.anchorMax = new Vector2(1, 0);
+        nameRt.pivot = new Vector2(0.5f, 0); nameRt.anchoredPosition = new Vector2(0, 5);
+        nameRt.sizeDelta = new Vector2(0, 25);
+
+        // Interaction
+        if (targetSlot != null)
         {
-            GameObject swatchObj = new GameObject("ColorSwatch");
-            swatchObj.transform.SetParent(rowObj.transform, false);
-            Image swatch = swatchObj.AddComponent<Image>();
-            swatch.color = cropToPlace.cropColor;
-
-            RectTransform swatchRt = swatchObj.GetComponent<RectTransform>();
-            swatchRt.anchorMin = new Vector2(0f, 0.5f);
-            swatchRt.anchorMax = new Vector2(0f, 0.5f);
-            swatchRt.pivot = new Vector2(0f, 0.5f);
-            swatchRt.anchoredPosition = new Vector2(15f, 0f);
-            swatchRt.sizeDelta = new Vector2(40f, 40f);
+            Button btn = card.AddComponent<Button>();
+            btn.onClick.AddListener(() => OnItemSelected(crop));
         }
 
-        // Label
-        GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(rowObj.transform, false);
-        TextMeshProUGUI labelTmp = labelObj.AddComponent<TextMeshProUGUI>();
-        labelTmp.text = label;
-        labelTmp.fontSize = 24;
-        labelTmp.color = textColor;
-        labelTmp.alignment = TextAlignmentOptions.Left;
-
-        RectTransform labelRt = labelObj.GetComponent<RectTransform>();
-        labelRt.anchorMin = new Vector2(0f, 0f);
-        labelRt.anchorMax = new Vector2(1f, 1f);
-        labelRt.offsetMin = new Vector2(65f, 0f); // Left padding after swatch
-        labelRt.offsetMax = new Vector2(0f, 0f);
-
-        // Make it clickable if there's a crop to place AND we have a target slot
-        if (cropToPlace != null && targetSlot != null)
-        {
-            Button btn = rowObj.AddComponent<Button>();
-            btn.targetGraphic = rowBg;
-
-            // Capture crop reference for the lambda
-            CropData capturedCrop = cropToPlace;
-            btn.onClick.AddListener(() => OnItemSelected(capturedCrop));
-        }
-
-        itemButtons.Add(rowObj);
+        itemCards.Add(card);
     }
 
     private void OnItemSelected(CropData crop)
     {
-        if (targetSlot == null || crop == null) return;
-
-        // Verify slot is still empty
-        if (!targetSlot.IsEmpty)
+        if (targetSlot == null || !targetSlot.IsEmpty) { Hide(); return; }
+        if (InventoryManager.Instance.RemoveItem(crop))
         {
-            Debug.LogWarning("Slot artık dolu!");
-            Hide();
-            return;
-        }
-
-        // Remove from inventory
-        if (InventoryManager.Instance != null && InventoryManager.Instance.RemoveItem(crop))
-        {
-            // Place on slot
             targetSlot.SetCrop(crop);
-            Debug.Log($"Envanter → Tarla: {crop.cropName} yerleştirildi.");
         }
-
         Hide();
     }
 }
