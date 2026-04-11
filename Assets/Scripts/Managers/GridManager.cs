@@ -28,6 +28,20 @@ public class GridManager : MonoBehaviour
     private void Start()
     {
         GenerateGrid();
+
+        // Subscribe to unlock events to refresh visuals
+        if (SlotUnlockManager.Instance != null)
+        {
+            SlotUnlockManager.Instance.OnSlotUnlocked += OnSlotUnlocked;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (SlotUnlockManager.Instance != null)
+        {
+            SlotUnlockManager.Instance.OnSlotUnlocked -= OnSlotUnlocked;
+        }
     }
 
     private void GenerateGrid()
@@ -58,8 +72,10 @@ public class GridManager : MonoBehaviour
                 GameObject newSlotObj = Instantiate(slotPrefab, spawnPos, Quaternion.identity, gridParent);
                 newSlotObj.name = $"Slot_{x}_{y}";
 
-                // Scale the slot prefab to match tighter grid
-                newSlotObj.transform.localScale = new Vector3(0.75f, 0.75f, 1f);
+                // Scale the slot to be slightly smaller than spacing (90%) 
+                // This creates the "grid line" effect by revealing the dark background
+                float visualScale = spacing * 0.9f;
+                newSlotObj.transform.localScale = new Vector3(visualScale, visualScale, 1f);
 
                 // Make sure the prefab has a GridSlot component attached
                 GridSlot slotComponent = newSlotObj.GetComponent<GridSlot>();
@@ -74,8 +90,9 @@ public class GridManager : MonoBehaviour
                 {
                     col = newSlotObj.AddComponent<BoxCollider2D>();
                 }
-                // Size collider to match spacing so there are no gaps between slots
-                col.size = new Vector2(spacing / newSlotObj.transform.localScale.x, spacing / newSlotObj.transform.localScale.y);
+                // Size collider to match the full spacing area 
+                // Math: visualScale * colliderSize = spacing -> colliderSize = spacing / visualScale
+                col.size = new Vector2(spacing / visualScale, spacing / visualScale);
 
                 if (newSlotObj.GetComponent<DragHandler>() == null)
                 {
@@ -85,12 +102,98 @@ public class GridManager : MonoBehaviour
                 // Initialize slot state
                 slotComponent.Initialize(x, y);
                 _grid[x, y] = slotComponent;
+
+                // Mark world boundary (col 0/19 and row 0/24)
+                if (x == 0 || x == columns - 1 || y == 0 || y == rows - 1)
+                {
+                    slotComponent.IsBorder = true;
+                }
+
+                // Apply lock/unlock visuals
+                ApplySlotLockState(slotComponent, x, y);
             }
         }
     }
 
     /// <summary>
-    /// Helper method to find the first available empty slot.
+    /// Apply visual lock/unlock state to a slot.
+    /// Locked slots are darkened and have interaction disabled.
+    /// </summary>
+    private void ApplySlotLockState(GridSlot slot, int x, int y)
+    {
+        bool isUnlocked = true;
+
+        if (SlotUnlockManager.Instance != null)
+        {
+            isUnlocked = SlotUnlockManager.Instance.IsUnlocked(x, y);
+        }
+
+        SpriteRenderer sr = slot.GetComponent<SpriteRenderer>();
+        DragHandler dh = slot.GetComponent<DragHandler>();
+
+        // Handle Border visual first
+        if (slot.IsBorder)
+        {
+            if (sr != null) sr.color = Color.black;
+            if (dh != null) dh.enabled = false;
+            slot.SetLocked(true);
+            return;
+        }
+
+        if (isUnlocked)
+        {
+            // Normal playable slot
+            if (sr != null) sr.color = Color.white;
+            if (dh != null) dh.enabled = true;
+            slot.SetLocked(false);
+        }
+        else
+        {
+            // All locked slots look the same (dark gray/neutral)
+            // Removed the green "adjacent" highlight as requested
+            if (sr != null) sr.color = new Color(0.15f, 0.15f, 0.15f, 0.7f);
+            
+            if (dh != null) dh.enabled = false;
+            slot.SetLocked(true);
+        }
+    }
+
+    /// <summary>
+    /// Called when a slot is unlocked — refresh that slot and its neighbors.
+    /// </summary>
+    private void OnSlotUnlocked(int x, int y)
+    {
+        if (_grid == null) return;
+
+        // Refresh the unlocked slot
+        if (x >= 0 && x < columns && y >= 0 && y < rows)
+        {
+            ApplySlotLockState(_grid[x, y], x, y);
+        }
+
+        // Refresh neighboring slots (they might become "adjacent to unlocked")
+        RefreshNeighbors(x, y);
+    }
+
+    private void RefreshNeighbors(int cx, int cy)
+    {
+        int[] dx = { -1, 1, 0, 0 };
+        int[] dy = { 0, 0, -1, 1 };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+
+            if (nx >= 0 && nx < columns && ny >= 0 && ny < rows)
+            {
+                ApplySlotLockState(_grid[nx, ny], nx, ny);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper method to find the first available empty AND unlocked slot.
     /// Useful for spawning new crops on the board.
     /// </summary>
     /// <returns>Returns an empty GridSlot, or null if the board is completely full.</returns>
@@ -102,7 +205,7 @@ public class GridManager : MonoBehaviour
         {
             for (int y = 0; y < rows; y++)
             {
-                if (_grid[x, y].IsEmpty)
+                if (_grid[x, y].IsEmpty && !_grid[x, y].IsLocked)
                 {
                     return _grid[x, y];
                 }
@@ -128,7 +231,7 @@ public class GridManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Finds the nearest GridSlot to a world position.
+    /// Finds the nearest UNLOCKED GridSlot to a world position.
     /// Used by DragHandler to snap crops to the nearest slot on drop.
     /// </summary>
     public GridSlot GetNearestSlot(Vector3 worldPosition)
@@ -142,6 +245,9 @@ public class GridManager : MonoBehaviour
         {
             for (int y = 0; y < rows; y++)
             {
+                // Only consider unlocked slots for drop targets
+                if (_grid[x, y].IsLocked) continue;
+
                 float dist = Vector2.Distance(worldPosition, _grid[x, y].transform.position);
                 if (dist < minDist)
                 {

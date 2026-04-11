@@ -9,6 +9,16 @@ public class GridSlot : MonoBehaviour
     [Header("State")]
     public CropData CurrentCrop;
 
+    /// <summary>
+    /// Whether this slot is locked (cannot hold crops or be interacted with).
+    /// </summary>
+    public bool IsLocked { get; private set; }
+
+    /// <summary>
+    /// Whether this slot is part of the non-playable world boundary.
+    /// </summary>
+    public bool IsBorder { get; set; }
+
     private SpriteRenderer _cropVisualRenderer;
 
     private void Awake()
@@ -45,10 +55,30 @@ public class GridSlot : MonoBehaviour
     }
 
     /// <summary>
+    /// Sets the locked state of this slot.
+    /// </summary>
+    public void SetLocked(bool locked)
+    {
+        IsLocked = locked;
+
+        // Hide crop visual when locked
+        if (locked && _cropVisualRenderer != null)
+        {
+            _cropVisualRenderer.enabled = false;
+        }
+        else if (!locked && _cropVisualRenderer != null)
+        {
+            _cropVisualRenderer.enabled = true;
+        }
+    }
+
+    /// <summary>
     /// Assigns a crop to this slot.
     /// </summary>
     public void SetCrop(CropData newCrop)
     {
+        if (IsLocked) return; // Can't set crops on locked slots
+
         CurrentCrop = newCrop;
         if (_cropVisualRenderer != null && newCrop != null)
         {

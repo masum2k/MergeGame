@@ -32,7 +32,7 @@ public class InventoryUI : MonoBehaviour
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
         {
-            canvas = FindObjectOfType<Canvas>();
+            canvas = FindAnyObjectByType<Canvas>();
         }
         if (canvas == null) return;
 

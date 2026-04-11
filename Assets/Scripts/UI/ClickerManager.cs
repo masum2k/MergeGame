@@ -1,6 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// ClickerManager — Manages energy-based clicking for coin generation.
+/// The visual button is created by UIManager (bottom-center round yellow button).
+/// This script handles only the logic: energy tracking, regen, and click rewards.
+/// </summary>
 public class ClickerManager : MonoBehaviour
 {
     [Header("Settings")]
@@ -10,10 +15,6 @@ public class ClickerManager : MonoBehaviour
     // State
     private int currentEnergy;
     private float timer = 0f;
-    
-    // UI binding elements
-    private Button myButton;
-    private TMPro.TextMeshProUGUI myButtonText;
 
     // Event
     public static event System.Action<int, int> OnEnergyChanged;
@@ -21,22 +22,8 @@ public class ClickerManager : MonoBehaviour
     private void Start()
     {
         currentEnergy = maxEnergy;
-        // Zero-Touch: Find the "Tıkla Kazan" button dynamically
-        foreach (var btn in GetComponentsInChildren<Button>(true))
-        {
-            var pText = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (pText != null && pText.text.Contains("Tıkla"))
-            {
-                myButton = btn;
-                myButtonText = pText;
-                break;
-            }
-        }
-        
-        // Notify any listeners
+        // Notify any listeners (UIManager will update button text)
         OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
-        UpdateButtonState();
-        UpdateButtonText();
     }
     
     private void Update()
@@ -49,8 +36,6 @@ public class ClickerManager : MonoBehaviour
                 currentEnergy++;
                 timer -= 10f;
                 OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
-                UpdateButtonState();
-                UpdateButtonText();
             }
         }
         else
@@ -60,7 +45,7 @@ public class ClickerManager : MonoBehaviour
     }
 
     /// <summary>
-    /// This method is designed to be called directly from a UI Button's "On Click ()" event via the Unity Inspector.
+    /// This method is called by UIManager's clicker button via onClick.
     /// </summary>
     public void OnClickCoinButton()
     {
@@ -73,31 +58,6 @@ public class ClickerManager : MonoBehaviour
             
             currentEnergy--;
             OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
-            UpdateButtonState();
-            UpdateButtonText();
-        }
-    }
-    
-    private void UpdateButtonState()
-    {
-        if (myButton != null)
-        {
-            myButton.interactable = currentEnergy > 0;
-        }
-    }
-
-    private void UpdateButtonText()
-    {
-        if (myButtonText != null)
-        {
-            if (currentEnergy >= maxEnergy)
-            {
-                myButtonText.text = "MAX";
-            }
-            else
-            {
-                myButtonText.text = currentEnergy.ToString();
-            }
         }
     }
 }

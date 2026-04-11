@@ -5,7 +5,7 @@ public class GameAutoSetup : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoBoot()
     {
-        if (FindObjectOfType<GameAutoSetup>() == null)
+        if (FindAnyObjectByType<GameAutoSetup>() == null)
         {
             GameObject obj = new GameObject("GameAutoSetup");
             obj.AddComponent<GameAutoSetup>();
@@ -14,131 +14,167 @@ public class GameAutoSetup : MonoBehaviour
 
     private void Awake()
     {
-        // Execute only in Play Mode
         if (!Application.isPlaying) return;
 
         // =============================================
-        //  STEP 1: Ensure Singletons exist in scene
+        //  STEP 1: Ensure Singletons
         // =============================================
         EnsureSingleton<InventoryManager>("InventoryManager");
         EnsureSingleton<CrateManager>("CrateManager");
 
+        // SlotUnlockManager must exist BEFORE GridManager.Start() runs
+        SlotUnlockManager unlockMgr = EnsureSingleton<SlotUnlockManager>("SlotUnlockManager");
+
         // =============================================
-        //  STEP 2: Create all 5 crop types in memory
+        //  STEP 2: Grid layout — 20 columns x 25 rows
+        //  Initially unlock a 6x5 patch in the center-bottom
+        // =============================================
+        const int columns = 20;
+        const int rows    = 25;
+        const float spacing = 0.7f;
+
+        // Centered starting region: cols 7-12, rows 10-14
+        const int unlockStartCol = 7;
+        const int unlockStartRow = 10;
+        const int unlockCols     = 6;
+        const int unlockRows     = 5;
+
+        unlockMgr.Initialize(unlockStartCol, unlockStartRow, unlockCols, unlockRows);
+
+        GridManager gridManager = FindAnyObjectByType<GridManager>();
+        if (gridManager != null)
+        {
+            gridManager.columns = columns;
+            gridManager.rows    = rows;
+            gridManager.spacing = spacing;
+        }
+
+        // =============================================
+        //  STEP 3: Create crop data
         // =============================================
         Sprite baseSprite = Resources.Load<Sprite>("WhiteSquare");
 
-        // --- Common: Havuç (Carrot) ---
         CropData carrot = ScriptableObject.CreateInstance<CropData>();
-        carrot.cropName = "Havuç";
-        carrot.tier = CropTier.Common;
-        carrot.coinPerTick = 1f;
-        carrot.cropSprite = baseSprite;
-        carrot.cropColor = new Color(1f, 0.5f, 0f); // Orange
+        carrot.cropName    = "Havuc";
+        carrot.tier        = CropTier.Common;
+        carrot.coinPerTick = 0.1f; // 1 coin every 10 seconds
+        carrot.cropSprite  = baseSprite;
+        carrot.cropColor   = new Color(1f, 0.5f, 0f);
 
-        // --- Uncommon: Elma (Apple) ---
         CropData apple = ScriptableObject.CreateInstance<CropData>();
-        apple.cropName = "Elma";
-        apple.tier = CropTier.Uncommon;
-        apple.coinPerTick = 3f;
-        apple.cropSprite = baseSprite;
-        apple.cropColor = Color.red;
+        apple.cropName    = "Elma";
+        apple.tier        = CropTier.Uncommon;
+        apple.coinPerTick = 0.1333f; // 2 coins every 15 seconds
+        apple.cropSprite  = baseSprite;
+        apple.cropColor   = Color.red;
 
-        // --- Rare: Çilek (Strawberry) ---
         CropData strawberry = ScriptableObject.CreateInstance<CropData>();
-        strawberry.cropName = "Çilek";
-        strawberry.tier = CropTier.Rare;
-        strawberry.coinPerTick = 8f;
-        strawberry.cropSprite = baseSprite;
-        strawberry.cropColor = new Color(1f, 0.4f, 0.7f); // Pink
+        strawberry.cropName    = "Cilek";
+        strawberry.tier        = CropTier.Rare;
+        strawberry.coinPerTick = 0.5f; // 1 coin every 2 seconds
+        strawberry.cropSprite  = baseSprite;
+        strawberry.cropColor   = new Color(1f, 0.4f, 0.7f);
 
-        // --- Epic: Üzüm (Grape) ---
         CropData grape = ScriptableObject.CreateInstance<CropData>();
-        grape.cropName = "Üzüm";
-        grape.tier = CropTier.Epic;
-        grape.coinPerTick = 20f;
-        grape.cropSprite = baseSprite;
-        grape.cropColor = new Color(0.5f, 0f, 0.8f); // Purple
+        grape.cropName    = "Uzum";
+        grape.tier        = CropTier.Epic;
+        grape.coinPerTick = 2f; // 2 coins every second
+        grape.cropSprite  = baseSprite;
+        grape.cropColor   = new Color(0.5f, 0f, 0.8f);
 
-        // --- Legendary: Altın Elma (Golden Apple) ---
         CropData goldenApple = ScriptableObject.CreateInstance<CropData>();
-        goldenApple.cropName = "Altın Elma";
-        goldenApple.tier = CropTier.Legendary;
-        goldenApple.coinPerTick = 50f;
-        goldenApple.cropSprite = baseSprite;
-        goldenApple.cropColor = new Color(1f, 0.84f, 0f); // Gold
+        goldenApple.cropName    = "Altin Elma";
+        goldenApple.tier        = CropTier.Legendary;
+        goldenApple.coinPerTick = 10f; // 10 coins every second
+        goldenApple.cropSprite  = baseSprite;
+        goldenApple.cropColor   = new Color(1f, 0.84f, 0f);
 
         // =============================================
-        //  STEP 3: Set up merge chain
-        //  Havuç → Elma → Çilek → Üzüm → Altın Elma
+        //  STEP 4: Merge chain
         // =============================================
-        carrot.nextLevelCrop = apple;
-        apple.nextLevelCrop = strawberry;
-        strawberry.nextLevelCrop = grape;
-        grape.nextLevelCrop = goldenApple;
-        goldenApple.nextLevelCrop = null; // Max level
+        carrot.nextLevelCrop      = apple;
+        apple.nextLevelCrop       = strawberry;
+        strawberry.nextLevelCrop  = grape;
+        grape.nextLevelCrop       = goldenApple;
+        goldenApple.nextLevelCrop = null;
 
         // =============================================
-        //  STEP 4: Configure Crate (Bronze Crate)
+        //  STEP 5: Bronze Crate
         // =============================================
-        CrateData bronzeCrate = new CrateData();
-        bronzeCrate.crateName = "Bronz Sandık";
-        bronzeCrate.cost = 10;
-        bronzeCrate.drops = new CrateDropEntry[]
+        CrateData bronzeCrate = new CrateData
         {
-            new CrateDropEntry { crop = carrot,      weight = 50f },  // ~56%
-            new CrateDropEntry { crop = apple,       weight = 25f },  // ~28%
-            new CrateDropEntry { crop = strawberry,  weight = 10f },  // ~11%
-            new CrateDropEntry { crop = grape,        weight = 4f },  // ~4.5%
-            new CrateDropEntry { crop = goldenApple,  weight = 1f },  // ~1.1%
+            crateName = "Bronz Sandik",
+            cost      = 10,
+            drops     = new CrateDropEntry[]
+            {
+                new CrateDropEntry { crop = carrot,      weight = 50f },
+                new CrateDropEntry { crop = apple,       weight = 25f },
+                new CrateDropEntry { crop = strawberry,  weight = 10f },
+                new CrateDropEntry { crop = grape,       weight = 4f  },
+                new CrateDropEntry { crop = goldenApple, weight = 1f  },
+            }
         };
 
-        // Assign crate to CrateManager
         if (CrateManager.Instance != null)
-        {
             CrateManager.Instance.currentCrate = bronzeCrate;
-        }
 
         // =============================================
-        //  STEP 5: Remove legacy "Havuç Al" button
+        //  STEP 6: IncomeManager tick rate
         // =============================================
-        foreach (var btn in FindObjectsOfType<UnityEngine.UI.Button>(true))
-        {
-            var tmp = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null && tmp.text.Contains("Havuç"))
-            {
-                Destroy(btn.gameObject);
-                break;
-            }
-        }
+        IncomeManager inc = EnsureSingleton<IncomeManager>("IncomeManager");
+        inc.gridManager = gridManager;
+        inc.collectionInterval = 1f;
 
         // =============================================
-        //  STEP 6: Configure Grid for tighter, smaller layout
+        //  STEP 7: Camera setup
+        //  Add CameraController to main camera and configure bounds.
+        //  Camera starts centered on the unlocked region.
         // =============================================
-        GridManager gridManager = FindObjectOfType<GridManager>();
-        if (gridManager != null)
+        Camera cam = Camera.main;
+        if (cam != null)
         {
-            gridManager.columns = 5;
-            gridManager.rows = 5;
-            gridManager.spacing = 0.85f; // Tighter spacing
-        }
+            // Slightly smaller ortho size so the farm feels large
+            cam.orthographicSize = 4f;
 
-        // =============================================
-        //  STEP 7: Set IncomeManager to 1-second ticks
-        // =============================================
-        IncomeManager incomeManager = FindObjectOfType<IncomeManager>();
-        if (incomeManager != null)
-        {
-            incomeManager.collectionInterval = 1f; // 1 second ticks for real-time income
+            // Add CameraController if not already present
+            CameraController cc = cam.GetComponent<CameraController>();
+            if (cc == null) cc = cam.gameObject.AddComponent<CameraController>();
+
+            // Calculate world extents of the full grid
+            float halfW = (columns - 1) * spacing * 0.5f;
+            float halfH = (rows    - 1) * spacing * 0.5f;
+
+            // Set full grid bounds for the camera controller
+            cc.SetBounds(-halfW, halfW, -halfH, halfH);
+
+            // Position camera to show the center of the unlocked patch
+            float unlockedCenterX = (unlockStartCol + unlockCols  * 0.5f - columns * 0.5f) * spacing;
+            float unlockedCenterY = (unlockStartRow + unlockRows  * 0.5f - rows    * 0.5f) * spacing;
+
+            float orthoH = cam.orthographicSize;
+            float orthoW = orthoH * cam.aspect;
+
+            // Clamp to within bounds
+            float minX = -halfW + orthoW;
+            float maxX =  halfW - orthoW;
+            float minY = -halfH + orthoH;
+            float maxY =  halfH - orthoH;
+
+            if (minX > maxX) minX = maxX = 0f;
+            if (minY > maxY) minY = maxY = 0f;
+
+            Vector3 startPos = new Vector3(
+                Mathf.Clamp(unlockedCenterX, minX, maxX),
+                Mathf.Clamp(unlockedCenterY, minY, maxY),
+                cam.transform.position.z
+            );
+            cam.transform.position = startPos;
         }
     }
 
-    /// <summary>
-    /// Ensures a singleton MonoBehaviour exists in the scene. Creates it if missing.
-    /// </summary>
     private T EnsureSingleton<T>(string objectName) where T : MonoBehaviour
     {
-        T existing = FindObjectOfType<T>();
+        T existing = FindAnyObjectByType<T>();
         if (existing == null)
         {
             GameObject obj = new GameObject(objectName);

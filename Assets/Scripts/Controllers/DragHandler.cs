@@ -21,8 +21,8 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // Don't drag if empty
-        if (_slot.IsEmpty)
+        // Don't drag if empty or locked
+        if (_slot.IsEmpty || _slot.IsLocked)
         {
             eventData.pointerDrag = null;
             return;
@@ -78,6 +78,9 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
     {
         // This is called on the TARGET slot when something is dropped on it.
         if (eventData.pointerDrag == null) return;
+
+        // Don't allow dropping on locked slots
+        if (_slot.IsLocked) return;
 
         DragHandler draggedItem = eventData.pointerDrag.GetComponent<DragHandler>();
         if (draggedItem != null && draggedItem != this)
@@ -139,12 +142,21 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
     }
 
     /// <summary>
-    /// Handles clicking on a slot. If the slot is empty, open the inventory panel.
+    /// Handles clicking on a slot.
+    /// - If locked and adjacent to unlocked: show unlock prompt.
+    /// - If empty and unlocked: open inventory panel.
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
         // Ignore if this was part of a drag operation
         if (_isDragging) return;
+
+        // Locked slot click: attempt unlock
+        if (_slot.IsLocked)
+        {
+            TryShowUnlockPrompt();
+            return;
+        }
 
         // Only open inventory if the slot is empty
         if (_slot.IsEmpty)
@@ -153,6 +165,35 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
             {
                 InventoryUI.Instance.Show(_slot);
             }
+        }
+    }
+
+    /// <summary>
+    /// Show unlock cost and attempt to unlock a locked slot.
+    /// </summary>
+    private void TryShowUnlockPrompt()
+    {
+        if (SlotUnlockManager.Instance == null) return;
+
+        int x = _slot.X;
+        int y = _slot.Y;
+
+        // Only allow unlocking if adjacent to already-unlocked territory
+        if (!SlotUnlockManager.Instance.IsAdjacentToUnlocked(x, y))
+        {
+            return; // Too far from unlocked area, do nothing
+        }
+
+        int cost = SlotUnlockManager.Instance.GetUnlockCost(x, y);
+
+        // Attempt to unlock (spends coins automatically)
+        if (SlotUnlockManager.Instance.TryUnlockSlot(x, y))
+        {
+            Debug.Log($"Slot ({x},{y}) acildi! Maliyet: {cost} coin");
+        }
+        else
+        {
+            Debug.Log($"Slot ({x},{y}) acilamadi. Maliyet: {cost} coin. Yetersiz bakiye.");
         }
     }
 }

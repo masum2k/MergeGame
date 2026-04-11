@@ -4,11 +4,10 @@ using TMPro;
 
 /// <summary>
 /// Zero-Touch Market UI. Creates:
-/// 1. A "Markete Git" button on the main screen (top-right area)
-/// 2. A Market panel (fullscreen overlay) with a "Sandık Aç" button
-/// 3. A drop notification that briefly shows what was obtained
+/// 1. A Market panel (fullscreen overlay) with a "Sandik Ac" button
+/// 2. A drop notification that briefly shows what was obtained
 /// 
-/// All UI is generated via code — no Inspector setup needed.
+/// The "Markete Git" and "Envantere Git" buttons are now handled by UIManager's top bar.
 /// </summary>
 public class MarketUI : MonoBehaviour
 {
@@ -23,12 +22,12 @@ public class MarketUI : MonoBehaviour
         Canvas canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
         {
-            canvas = FindObjectOfType<Canvas>();
+            canvas = FindAnyObjectByType<Canvas>();
         }
         if (canvas == null) return;
 
-        BuildMarketButton(canvas.transform);
-        BuildInventoryButton(canvas.transform);
+        // Market and Inventory buttons are now in UIManager top bar.
+        // Only build the market panel overlay here.
         BuildMarketPanel(canvas.transform);
 
         // Subscribe to crate events
@@ -56,96 +55,6 @@ public class MarketUI : MonoBehaviour
             {
                 dropNotificationText.text = "";
             }
-        }
-    }
-
-    // =============================================
-    //  BUILD: "Markete Git" Button (Main Screen)
-    // =============================================
-    private void BuildMarketButton(Transform parent)
-    {
-        // Button container
-        GameObject btnObj = new GameObject("MarketButton_Auto");
-        btnObj.transform.SetParent(parent, false);
-
-        Image btnImage = btnObj.AddComponent<Image>();
-        btnImage.color = new Color(0.2f, 0.7f, 0.3f, 1f); // Green
-
-        Button btn = btnObj.AddComponent<Button>();
-        btn.targetGraphic = btnImage;
-
-        // Position: top-right
-        RectTransform rt = btnObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(1f, 1f);
-        rt.anchorMax = new Vector2(1f, 1f);
-        rt.pivot = new Vector2(1f, 1f);
-        rt.anchoredPosition = new Vector2(-20f, -20f);
-        rt.sizeDelta = new Vector2(200f, 60f);
-
-        // Label
-        GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(btnObj.transform, false);
-        TextMeshProUGUI label = labelObj.AddComponent<TextMeshProUGUI>();
-        label.text = "Markete Git";
-        label.fontSize = 24;
-        label.color = Color.white;
-        label.alignment = TextAlignmentOptions.Center;
-
-        RectTransform labelRt = labelObj.GetComponent<RectTransform>();
-        labelRt.anchorMin = Vector2.zero;
-        labelRt.anchorMax = Vector2.one;
-        labelRt.offsetMin = Vector2.zero;
-        labelRt.offsetMax = Vector2.zero;
-
-        btn.onClick.AddListener(OpenMarket);
-    }
-
-    // =============================================
-    //  BUILD: "Envantere Git" Button (Main Screen, left of Market)
-    // =============================================
-    private void BuildInventoryButton(Transform parent)
-    {
-        GameObject btnObj = new GameObject("InventoryButton_Auto");
-        btnObj.transform.SetParent(parent, false);
-
-        Image btnImage = btnObj.AddComponent<Image>();
-        btnImage.color = new Color(0.2f, 0.4f, 0.8f, 1f); // Blue
-
-        Button btn = btnObj.AddComponent<Button>();
-        btn.targetGraphic = btnImage;
-
-        // Position: top-right, but left of the Market button
-        RectTransform rt = btnObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(1f, 1f);
-        rt.anchorMax = new Vector2(1f, 1f);
-        rt.pivot = new Vector2(1f, 1f);
-        rt.anchoredPosition = new Vector2(-230f, -20f); // 210px offset from Market button
-        rt.sizeDelta = new Vector2(200f, 60f);
-
-        // Label
-        GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(btnObj.transform, false);
-        TextMeshProUGUI label = labelObj.AddComponent<TextMeshProUGUI>();
-        label.text = "Envantere Git";
-        label.fontSize = 22;
-        label.color = Color.white;
-        label.alignment = TextAlignmentOptions.Center;
-
-        RectTransform labelRt = labelObj.GetComponent<RectTransform>();
-        labelRt.anchorMin = Vector2.zero;
-        labelRt.anchorMax = Vector2.one;
-        labelRt.offsetMin = Vector2.zero;
-        labelRt.offsetMax = Vector2.zero;
-
-        btn.onClick.AddListener(OpenInventoryView);
-    }
-
-    private void OpenInventoryView()
-    {
-        // Open inventory in "view only" mode (no target slot)
-        if (InventoryUI.Instance != null)
-        {
-            InventoryUI.Instance.Show(null);
         }
     }
 
@@ -188,7 +97,7 @@ public class MarketUI : MonoBehaviour
         GameObject crateInfoObj = new GameObject("CrateInfo");
         crateInfoObj.transform.SetParent(marketPanel.transform, false);
         crateInfoText = crateInfoObj.AddComponent<TextMeshProUGUI>();
-        crateInfoText.text = "Bronz Sandık\nFiyat: 10 Coin";
+        crateInfoText.text = "Bronz Sandik\nFiyat: 10 Coin";
         crateInfoText.fontSize = 28;
         crateInfoText.color = new Color(1f, 0.84f, 0f); // Gold text
         crateInfoText.alignment = TextAlignmentOptions.Center;
@@ -221,7 +130,7 @@ public class MarketUI : MonoBehaviour
         GameObject crateLabelObj = new GameObject("Label");
         crateLabelObj.transform.SetParent(crateBtnObj.transform, false);
         TextMeshProUGUI crateLabel = crateLabelObj.AddComponent<TextMeshProUGUI>();
-        crateLabel.text = "Sandık Aç";
+        crateLabel.text = "Sandik Ac";
         crateLabel.fontSize = 28;
         crateLabel.color = Color.white;
         crateLabel.alignment = TextAlignmentOptions.Center;
@@ -347,7 +256,7 @@ public class MarketUI : MonoBehaviour
             dropNotificationText.color = textColor;
 
             string tierText = droppedCrop.tier.ToString();
-            dropNotificationText.text = $"[YENİ] {droppedCrop.cropName} düştü! [{tierText}]";
+            dropNotificationText.text = $"[YENI] {droppedCrop.cropName} dustu! [{tierText}]";
             notificationTimer = 3f;
         }
     }
