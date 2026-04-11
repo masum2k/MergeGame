@@ -86,7 +86,7 @@ public class MarketUI : MonoBehaviour
         GameObject labelObj = new GameObject("Label");
         labelObj.transform.SetParent(btnObj.transform, false);
         TextMeshProUGUI label = labelObj.AddComponent<TextMeshProUGUI>();
-        label.text = "🏪 Markete Git";
+        label.text = "Markete Git";
         label.fontSize = 24;
         label.color = Color.white;
         label.alignment = TextAlignmentOptions.Center;
@@ -126,7 +126,7 @@ public class MarketUI : MonoBehaviour
         GameObject labelObj = new GameObject("Label");
         labelObj.transform.SetParent(btnObj.transform, false);
         TextMeshProUGUI label = labelObj.AddComponent<TextMeshProUGUI>();
-        label.text = "📦 Envantere Git";
+        label.text = "Envantere Git";
         label.fontSize = 22;
         label.color = Color.white;
         label.alignment = TextAlignmentOptions.Center;
@@ -171,7 +171,7 @@ public class MarketUI : MonoBehaviour
         GameObject titleObj = new GameObject("Title");
         titleObj.transform.SetParent(marketPanel.transform, false);
         TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
-        titleText.text = "🏪 MARKET";
+        titleText.text = "MARKET";
         titleText.fontSize = 42;
         titleText.color = Color.white;
         titleText.alignment = TextAlignmentOptions.Center;
@@ -221,7 +221,7 @@ public class MarketUI : MonoBehaviour
         GameObject crateLabelObj = new GameObject("Label");
         crateLabelObj.transform.SetParent(crateBtnObj.transform, false);
         TextMeshProUGUI crateLabel = crateLabelObj.AddComponent<TextMeshProUGUI>();
-        crateLabel.text = "🎁 Sandık Aç";
+        crateLabel.text = "Sandık Aç";
         crateLabel.fontSize = 28;
         crateLabel.color = Color.white;
         crateLabel.alignment = TextAlignmentOptions.Center;
@@ -271,7 +271,7 @@ public class MarketUI : MonoBehaviour
         GameObject closeLabelObj = new GameObject("Label");
         closeLabelObj.transform.SetParent(closeBtnObj.transform, false);
         TextMeshProUGUI closeLabel = closeLabelObj.AddComponent<TextMeshProUGUI>();
-        closeLabel.text = "✖ Kapat";
+        closeLabel.text = "X Kapat";
         closeLabel.fontSize = 24;
         closeLabel.color = Color.white;
         closeLabel.alignment = TextAlignmentOptions.Center;
@@ -329,7 +329,7 @@ public class MarketUI : MonoBehaviour
                 if (dropNotificationText != null)
                 {
                     dropNotificationText.color = new Color(1f, 0.3f, 0.3f);
-                    dropNotificationText.text = "❌ Yeterli coin yok!";
+                    dropNotificationText.text = "Yetersiz Bakiye!";
                     notificationTimer = 2f;
                 }
             }
@@ -347,7 +347,7 @@ public class MarketUI : MonoBehaviour
             dropNotificationText.color = textColor;
 
             string tierText = droppedCrop.tier.ToString();
-            dropNotificationText.text = $"🎉 {droppedCrop.cropName} düştü! [{tierText}]";
+            dropNotificationText.text = $"[YENİ] {droppedCrop.cropName} düştü! [{tierText}]";
             notificationTimer = 3f;
         }
     }

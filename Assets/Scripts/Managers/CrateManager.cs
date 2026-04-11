@@ -75,7 +75,7 @@ public class CrateManager : MonoBehaviour
             InventoryManager.Instance.AddItem(drop);
         }
 
-        Debug.Log($"🎁 Sandıktan düştü: {drop.cropName} ({drop.tier})");
+        Debug.Log($"[SANDIK] Sandıktan düştü: {drop.cropName} ({drop.tier})");
         OnCrateOpened?.Invoke(drop);
 
         return drop;

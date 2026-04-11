@@ -61,7 +61,7 @@ public class InventoryUI : MonoBehaviour
         GameObject titleObj = new GameObject("Title");
         titleObj.transform.SetParent(inventoryPanel.transform, false);
         titleText = titleObj.AddComponent<TextMeshProUGUI>();
-        titleText.text = "📦 Envanter — Besin Seç";
+        titleText.text = "Envanter — Besin Seç";
         titleText.fontSize = 36;
         titleText.color = Color.white;
         titleText.alignment = TextAlignmentOptions.Center;
@@ -122,7 +122,7 @@ public class InventoryUI : MonoBehaviour
         GameObject closeLabelObj = new GameObject("Label");
         closeLabelObj.transform.SetParent(closeBtnObj.transform, false);
         TextMeshProUGUI closeLabel = closeLabelObj.AddComponent<TextMeshProUGUI>();
-        closeLabel.text = "✖ Kapat";
+        closeLabel.text = "X Kapat";
         closeLabel.fontSize = 24;
         closeLabel.color = Color.white;
         closeLabel.alignment = TextAlignmentOptions.Center;
@@ -159,8 +159,8 @@ public class InventoryUI : MonoBehaviour
         if (titleText != null)
         {
             titleText.text = slot != null 
-                ? "📦 Envanter — Besin Seç" 
-                : "📦 Envanter";
+                ? "Envanter — Besin Seç" 
+                : "Envanter";
         }
 
         PopulateItems();
