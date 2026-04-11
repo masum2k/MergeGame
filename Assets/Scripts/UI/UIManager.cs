@@ -16,6 +16,8 @@ public class UIManager : MonoBehaviour
 
     // Auto-created references
     private TextMeshProUGUI gemText;
+    private TextMeshProUGUI levelText;
+    private Image xpBarFill;
     private GameObject topBar;
     private Button clickButtonRef;
     private TextMeshProUGUI clickButtonText;
@@ -42,6 +44,14 @@ public class UIManager : MonoBehaviour
             CurrencyManager.Instance.OnGemChanged += UpdateGemText;
         }
 
+        // Hook up level events
+        if (LevelManager.Instance != null)
+        {
+            UpdateLevelUI(LevelManager.Instance.Level, LevelManager.Instance.CurrentXP, LevelManager.Instance.XPForNextLevel);
+            LevelManager.Instance.OnXPChanged += UpdateLevelUI;
+            LevelManager.Instance.OnLevelUp += HandleLevelUp;
+        }
+
         // Hook up passive income feedback
         IncomeManager.OnIncomeCollected += HandleIncomeCollected;
 
@@ -58,6 +68,12 @@ public class UIManager : MonoBehaviour
         {
             CurrencyManager.Instance.OnCoinChanged -= UpdateCoinText;
             CurrencyManager.Instance.OnGemChanged -= UpdateGemText;
+        }
+
+        if (LevelManager.Instance != null)
+        {
+            LevelManager.Instance.OnXPChanged -= UpdateLevelUI;
+            LevelManager.Instance.OnLevelUp -= HandleLevelUp;
         }
         
         IncomeManager.OnIncomeCollected -= HandleIncomeCollected;
@@ -124,22 +140,43 @@ public class UIManager : MonoBehaviour
         // Gem letter on icon
         AddIconLabel(gemIcon.transform, "G", Color.black);
 
-        // --- Gem Text ---
-        GameObject gemObj = new GameObject("GemText_TopBar");
-        gemObj.transform.SetParent(topBar.transform, false);
-        gemText = gemObj.AddComponent<TextMeshProUGUI>();
-        gemText.text = "0";
-        gemText.fontSize = 28;
-        gemText.fontStyle = FontStyles.Bold;
-        gemText.color = new Color(0.4f, 1f, 1f);
-        gemText.alignment = TextAlignmentOptions.Left | TextAlignmentOptions.Midline;
+        // --- XP Bar (Bottom of TopBar) ---
+        GameObject xpBarBg = new GameObject("XPBar_Bg");
+        xpBarBg.transform.SetParent(topBar.transform, false);
+        Image xpBgImg = xpBarBg.AddComponent<Image>();
+        xpBgImg.color = new Color(0.1f, 0.1f, 0.15f, 1f);
+        RectTransform xpBgRt = xpBarBg.GetComponent<RectTransform>();
+        xpBgRt.anchorMin = new Vector2(0f, 0f);
+        xpBgRt.anchorMax = new Vector2(1f, 0f);
+        xpBgRt.pivot = new Vector2(0.5f, 0f);
+        xpBgRt.anchoredPosition = Vector2.zero;
+        xpBgRt.sizeDelta = new Vector2(0f, 10f);
 
-        RectTransform gemRt = gemObj.GetComponent<RectTransform>();
-        gemRt.anchorMin = new Vector2(0f, 0.5f);
-        gemRt.anchorMax = new Vector2(0f, 0.5f);
-        gemRt.pivot = new Vector2(0f, 0.5f);
-        gemRt.anchoredPosition = new Vector2(248f, 0f);
-        gemRt.sizeDelta = new Vector2(120f, 50f);
+        GameObject xpBarFillObj = new GameObject("XPBar_Fill");
+        xpBarFillObj.transform.SetParent(xpBarBg.transform, false);
+        xpBarFill = xpBarFillObj.AddComponent<Image>();
+        xpBarFill.color = new Color(0.2f, 0.6f, 1f);
+        RectTransform xpFillRt = xpBarFillObj.GetComponent<RectTransform>();
+        xpFillRt.anchorMin = new Vector2(0f, 0f);
+        xpFillRt.anchorMax = new Vector2(0f, 1f); // Width controlled by code
+        xpFillRt.pivot = new Vector2(0f, 0.5f);
+        xpFillRt.anchoredPosition = Vector2.zero;
+        xpFillRt.sizeDelta = Vector2.zero;
+
+        // --- Level Text ---
+        GameObject levelObj = new GameObject("LevelText_TopBar");
+        levelObj.transform.SetParent(topBar.transform, false);
+        levelText = levelObj.AddComponent<TextMeshProUGUI>();
+        levelText.text = "LVL 1";
+        levelText.fontSize = 20;
+        levelText.fontStyle = FontStyles.Bold;
+        levelText.color = Color.white;
+        levelText.alignment = TextAlignmentOptions.Left | TextAlignmentOptions.Midline;
+        RectTransform levelRt = levelObj.GetComponent<RectTransform>();
+        levelRt.anchorMin = new Vector2(0f, 0.5f);
+        levelRt.anchorMax = new Vector2(0f, 0.5f);
+        levelRt.anchoredPosition = new Vector2(400f, 0f);
+        levelRt.sizeDelta = new Vector2(100f, 50f);
 
         // --- Market Button (right side) ---
         BuildTopBarButton(topBar.transform, "Market", new Color(0.2f, 0.7f, 0.3f),
@@ -413,6 +450,22 @@ public class UIManager : MonoBehaviour
         {
             gemText.text = gemValue.ToString();
         }
+    }
+
+    private void UpdateLevelUI(int level, float currentXP, float maxXP)
+    {
+        if (levelText != null) levelText.text = "LVL " + level;
+        if (xpBarFill != null)
+        {
+            float ratio = Mathf.Clamp01(currentXP / maxXP);
+            xpBarFill.rectTransform.anchorMax = new Vector2(ratio, 1f);
+        }
+    }
+
+    private void HandleLevelUp(int newLevel)
+    {
+        // Simple Level Up feedback
+        Debug.Log("UIManager: Level Up Animation Triggered!");
     }
 
     // =============================================

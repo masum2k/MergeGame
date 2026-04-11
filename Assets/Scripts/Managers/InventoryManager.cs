@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Singleton inventory manager. Holds crops that the player owns but hasn't placed on the grid yet.
-/// Uses a Dictionary internally: cropName → (CropData reference, count).
+/// Singleton inventory manager. Holds items (Crops/Boosts) that the player owns.
+/// Uses a Dictionary internally: itemName → (BaseItemData reference, count).
 /// </summary>
 public class InventoryManager : MonoBehaviour
 {
@@ -31,12 +31,12 @@ public class InventoryManager : MonoBehaviour
     /// </summary>
     public event Action OnInventoryChanged;
 
-    // Internal storage: cropName → InventoryEntry
+    // Internal storage: itemName → InventoryEntry
     private Dictionary<string, InventoryEntry> _items = new Dictionary<string, InventoryEntry>();
 
     private class InventoryEntry
     {
-        public CropData cropData;
+        public BaseItemData itemData;
         public int count;
     }
 
@@ -55,37 +55,37 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Add one unit of a crop to the inventory.
+    /// Add one unit of an item to the inventory.
     /// </summary>
-    public void AddItem(CropData crop)
+    public void AddItem(BaseItemData item)
     {
-        if (crop == null) return;
+        if (item == null) return;
 
-        if (_items.ContainsKey(crop.cropName))
+        if (_items.ContainsKey(item.itemName))
         {
-            _items[crop.cropName].count++;
+            _items[item.itemName].count++;
         }
         else
         {
-            _items[crop.cropName] = new InventoryEntry { cropData = crop, count = 1 };
+            _items[item.itemName] = new InventoryEntry { itemData = item, count = 1 };
         }
 
         OnInventoryChanged?.Invoke();
     }
 
     /// <summary>
-    /// Remove one unit of a crop from the inventory. Returns true if successful.
+    /// Remove one unit of an item from the inventory. Returns true if successful.
     /// </summary>
-    public bool RemoveItem(CropData crop)
+    public bool RemoveItem(BaseItemData item)
     {
-        if (crop == null) return false;
+        if (item == null) return false;
 
-        if (_items.ContainsKey(crop.cropName) && _items[crop.cropName].count > 0)
+        if (_items.ContainsKey(item.itemName) && _items[item.itemName].count > 0)
         {
-            _items[crop.cropName].count--;
-            if (_items[crop.cropName].count <= 0)
+            _items[item.itemName].count--;
+            if (_items[item.itemName].count <= 0)
             {
-                _items.Remove(crop.cropName);
+                _items.Remove(item.itemName);
             }
             OnInventoryChanged?.Invoke();
             return true;
@@ -95,43 +95,46 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get the count of a specific crop in the inventory.
+    /// Get the count of a specific item in the inventory.
     /// </summary>
-    public int GetCount(string cropName)
+    public int GetCount(string itemName)
     {
-        if (_items.ContainsKey(cropName))
+        if (_items.ContainsKey(itemName))
         {
-            return _items[cropName].count;
+            return _items[itemName].count;
         }
         return 0;
     }
 
     /// <summary>
-    /// Returns all unique crops currently in the inventory (count > 0).
+    /// Returns all unique items currently in the inventory (count > 0).
     /// </summary>
-    public List<CropData> GetAllOwnedCrops()
+    public List<BaseItemData> GetAllOwnedItems()
     {
-        List<CropData> result = new List<CropData>();
+        List<BaseItemData> result = new List<BaseItemData>();
         foreach (var kvp in _items)
         {
             if (kvp.Value.count > 0)
             {
-                result.Add(kvp.Value.cropData);
+                result.Add(kvp.Value.itemData);
             }
         }
         return result;
     }
 
     /// <summary>
-    /// Returns total number of items in inventory.
+    /// Returns all items of a specific type.
     /// </summary>
-    public int GetTotalItemCount()
+    public List<T> GetItemsOfType<T>() where T : BaseItemData
     {
-        int total = 0;
+        List<T> result = new List<T>();
         foreach (var kvp in _items)
         {
-            total += kvp.Value.count;
+            if (kvp.Value.itemData is T item && kvp.Value.count > 0)
+            {
+                result.Add(item);
+            }
         }
-        return total;
+        return result;
     }
 }

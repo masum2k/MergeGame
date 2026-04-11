@@ -21,6 +21,9 @@ public class GameAutoSetup : MonoBehaviour
         // =============================================
         EnsureSingleton<InventoryManager>("InventoryManager");
         EnsureSingleton<CrateManager>("CrateManager");
+        EnsureSingleton<LevelManager>("LevelManager");
+        EnsureSingleton<BoostManager>("BoostManager");
+        EnsureSingleton<GameContentGenerator>("GameContentGenerator");
 
         // SlotUnlockManager must exist BEFORE GridManager.Start() runs
         SlotUnlockManager unlockMgr = EnsureSingleton<SlotUnlockManager>("SlotUnlockManager");
@@ -48,75 +51,6 @@ public class GameAutoSetup : MonoBehaviour
             gridManager.rows    = rows;
             gridManager.spacing = spacing;
         }
-
-        // =============================================
-        //  STEP 3: Create crop data
-        // =============================================
-        Sprite baseSprite = Resources.Load<Sprite>("WhiteSquare");
-
-        CropData carrot = ScriptableObject.CreateInstance<CropData>();
-        carrot.cropName    = "Havuc";
-        carrot.tier        = CropTier.Common;
-        carrot.coinPerTick = 0.1f; // 1 coin every 10 seconds
-        carrot.cropSprite  = baseSprite;
-        carrot.cropColor   = new Color(1f, 0.5f, 0f);
-
-        CropData apple = ScriptableObject.CreateInstance<CropData>();
-        apple.cropName    = "Elma";
-        apple.tier        = CropTier.Uncommon;
-        apple.coinPerTick = 0.1333f; // 2 coins every 15 seconds
-        apple.cropSprite  = baseSprite;
-        apple.cropColor   = Color.red;
-
-        CropData strawberry = ScriptableObject.CreateInstance<CropData>();
-        strawberry.cropName    = "Cilek";
-        strawberry.tier        = CropTier.Rare;
-        strawberry.coinPerTick = 0.5f; // 1 coin every 2 seconds
-        strawberry.cropSprite  = baseSprite;
-        strawberry.cropColor   = new Color(1f, 0.4f, 0.7f);
-
-        CropData grape = ScriptableObject.CreateInstance<CropData>();
-        grape.cropName    = "Uzum";
-        grape.tier        = CropTier.Epic;
-        grape.coinPerTick = 2f; // 2 coins every second
-        grape.cropSprite  = baseSprite;
-        grape.cropColor   = new Color(0.5f, 0f, 0.8f);
-
-        CropData goldenApple = ScriptableObject.CreateInstance<CropData>();
-        goldenApple.cropName    = "Altin Elma";
-        goldenApple.tier        = CropTier.Legendary;
-        goldenApple.coinPerTick = 10f; // 10 coins every second
-        goldenApple.cropSprite  = baseSprite;
-        goldenApple.cropColor   = new Color(1f, 0.84f, 0f);
-
-        // =============================================
-        //  STEP 4: Merge chain
-        // =============================================
-        carrot.nextLevelCrop      = apple;
-        apple.nextLevelCrop       = strawberry;
-        strawberry.nextLevelCrop  = grape;
-        grape.nextLevelCrop       = goldenApple;
-        goldenApple.nextLevelCrop = null;
-
-        // =============================================
-        //  STEP 5: Bronze Crate
-        // =============================================
-        CrateData bronzeCrate = new CrateData
-        {
-            crateName = "Bronz Sandik",
-            cost      = 10,
-            drops     = new CrateDropEntry[]
-            {
-                new CrateDropEntry { crop = carrot,      weight = 50f },
-                new CrateDropEntry { crop = apple,       weight = 25f },
-                new CrateDropEntry { crop = strawberry,  weight = 10f },
-                new CrateDropEntry { crop = grape,       weight = 4f  },
-                new CrateDropEntry { crop = goldenApple, weight = 1f  },
-            }
-        };
-
-        if (CrateManager.Instance != null)
-            CrateManager.Instance.currentCrate = bronzeCrate;
 
         // =============================================
         //  STEP 6: IncomeManager tick rate

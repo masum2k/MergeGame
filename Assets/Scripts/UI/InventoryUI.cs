@@ -279,42 +279,56 @@ public class InventoryUI : MonoBehaviour
         ClearItems();
 
         if (InventoryManager.Instance == null) return;
-        List<CropData> crops = InventoryManager.Instance.GetAllOwnedCrops();
 
-        // Filter by Tab
+        // Filter and Cast based on Tab
         if (_currentTab == Tab.Besin)
         {
-            // Only crops currently supported in this view
-        }
-        else
-        {
-            // Boost and Item tabs are currently empty but won't cause early exit
-            crops.Clear();
-        }
+            List<CropData> crops = InventoryManager.Instance.GetItemsOfType<CropData>();
+            
+            // Sorting
+            switch (_currentSort)
+            {
+                case SortMode.Tier:
+                    crops = crops.OrderByDescending(c => c.tier).ThenBy(c => c.itemName).ToList();
+                    break;
+                case SortMode.Count:
+                    crops = crops.OrderByDescending(c => InventoryManager.Instance.GetCount(c.itemName)).ThenBy(c => c.itemName).ToList();
+                    break;
+                case SortMode.Name:
+                    crops = crops.OrderBy(c => c.itemName).ToList();
+                    break;
+            }
 
-        // Sorting
-        switch (_currentSort)
-        {
-            case SortMode.Tier:
-                crops = crops.OrderByDescending(c => c.tier).ThenBy(c => c.cropName).ToList();
-                break;
-            case SortMode.Count:
-                crops = crops.OrderByDescending(c => InventoryManager.Instance.GetCount(c.cropName)).ThenBy(c => c.cropName).ToList();
-                break;
-            case SortMode.Name:
-                crops = crops.OrderBy(c => c.cropName).ToList();
-                break;
+            foreach (var crop in crops)
+            {
+                CreateItemCard(crop);
+            }
         }
-
-        foreach (var crop in crops)
+        else if (_currentTab == Tab.Boost)
         {
-            CreateItemCard(crop);
+            List<BoostData> boosts = InventoryManager.Instance.GetItemsOfType<BoostData>();
+            
+            // Sorting for boosts (mostly by name or count)
+            switch (_currentSort)
+            {
+                case SortMode.Count:
+                    boosts = boosts.OrderByDescending(b => InventoryManager.Instance.GetCount(b.itemName)).ThenBy(b => b.itemName).ToList();
+                    break;
+                default:
+                    boosts = boosts.OrderBy(b => b.itemName).ToList();
+                    break;
+            }
+
+            foreach (var boost in boosts)
+            {
+                CreateItemCard(boost);
+            }
         }
     }
 
-    private void CreateItemCard(CropData crop)
+    private void CreateItemCard(BaseItemData item)
     {
-        GameObject card = new GameObject("ItemCard_" + crop.cropName, typeof(RectTransform));
+        GameObject card = new GameObject("ItemCard_" + item.itemName, typeof(RectTransform));
         card.transform.SetParent(itemContainer, false);
         Image bg = card.AddComponent<Image>();
         bg.color = new Color(0.15f, 0.2f, 0.3f, 0.9f);
@@ -323,30 +337,33 @@ public class InventoryUI : MonoBehaviour
         GameObject iconObj = new GameObject("Icon", typeof(RectTransform));
         iconObj.transform.SetParent(card.transform, false);
         Image iconImg = iconObj.AddComponent<Image>();
-        iconImg.sprite = crop.cropSprite;
-        iconImg.color = crop.cropColor;
+        iconImg.sprite = item.icon;
+        iconImg.color = item.itemColor;
         RectTransform iconRt = iconObj.GetComponent<RectTransform>();
         iconRt.anchorMin = new Vector2(0.5f, 0.5f); iconRt.anchorMax = new Vector2(0.5f, 0.5f);
         iconRt.sizeDelta = new Vector2(80f, 80f);
 
-        // Tier
-        GameObject tierObj = new GameObject("Tier", typeof(RectTransform));
-        tierObj.transform.SetParent(card.transform, false);
-        TextMeshProUGUI tierTxt = tierObj.AddComponent<TextMeshProUGUI>();
-        tierTxt.text = "T" + ((int)crop.tier + 1);
-        tierTxt.fontSize = 20; tierTxt.fontStyle = FontStyles.Bold;
-        tierTxt.color = new Color(1f, 1f, 1f, 0.5f);
-        tierTxt.alignment = TextAlignmentOptions.TopRight;
-        RectTransform tierRt = tierObj.GetComponent<RectTransform>();
-        tierRt.anchorMin = Vector2.zero; tierRt.anchorMax = Vector2.one;
-        tierRt.offsetMin = new Vector2(5, 5); tierRt.offsetMax = new Vector2(-5, -5);
+        // Tier (Only for Crops)
+        if (item is CropData cropData)
+        {
+            GameObject tierObj = new GameObject("Tier", typeof(RectTransform));
+            tierObj.transform.SetParent(card.transform, false);
+            TextMeshProUGUI tierTxt = tierObj.AddComponent<TextMeshProUGUI>();
+            tierTxt.text = "T" + ((int)cropData.tier + 1);
+            tierTxt.fontSize = 20; tierTxt.fontStyle = FontStyles.Bold;
+            tierTxt.color = new Color(1f, 1f, 1f, 0.5f);
+            tierTxt.alignment = TextAlignmentOptions.TopRight;
+            RectTransform tierRt = tierObj.GetComponent<RectTransform>();
+            tierRt.anchorMin = Vector2.zero; tierRt.anchorMax = Vector2.one;
+            tierRt.offsetMin = new Vector2(5, 5); tierRt.offsetMax = new Vector2(-5, -5);
+        }
 
         // Count
         GameObject countObj = new GameObject("Count", typeof(RectTransform));
         countObj.transform.SetParent(card.transform, false);
         TextMeshProUGUI countTxt = countObj.AddComponent<TextMeshProUGUI>();
-        countTxt.text = "x" + InventoryManager.Instance.GetCount(crop.cropName);
-        countTxt.fontSize = 20; countTxt.fontStyle = FontStyles.Bold;
+        countTxt.text = "x" + InventoryManager.Instance.GetCount(item.itemName);
+        countTxt.fontSize = 18; countTxt.fontStyle = FontStyles.Bold;
         countTxt.alignment = TextAlignmentOptions.BottomRight;
         RectTransform countRt = countObj.GetComponent<RectTransform>();
         countRt.anchorMin = Vector2.zero; countRt.anchorMax = Vector2.one;
@@ -356,7 +373,7 @@ public class InventoryUI : MonoBehaviour
         GameObject nameObj = new GameObject("Name", typeof(RectTransform));
         nameObj.transform.SetParent(card.transform, false);
         TextMeshProUGUI nameTxt = nameObj.AddComponent<TextMeshProUGUI>();
-        nameTxt.text = crop.cropName;
+        nameTxt.text = item.itemName;
         nameTxt.fontSize = 14; nameTxt.alignment = TextAlignmentOptions.Bottom;
         RectTransform nameRt = nameObj.GetComponent<RectTransform>();
         nameRt.anchorMin = new Vector2(0, 0); nameRt.anchorMax = new Vector2(1, 0);
@@ -364,22 +381,30 @@ public class InventoryUI : MonoBehaviour
         nameRt.sizeDelta = new Vector2(0, 25);
 
         // Interaction
-        if (targetSlot != null)
-        {
-            Button btn = card.AddComponent<Button>();
-            btn.onClick.AddListener(() => OnItemSelected(crop));
-        }
+        Button btn = card.AddComponent<Button>();
+        btn.onClick.AddListener(() => OnItemSelected(item));
 
         itemCards.Add(card);
     }
 
-    private void OnItemSelected(CropData crop)
+    private void OnItemSelected(BaseItemData item)
     {
-        if (targetSlot == null || !targetSlot.IsEmpty) { Hide(); return; }
-        if (InventoryManager.Instance.RemoveItem(crop))
+        if (item is CropData crop)
         {
-            targetSlot.SetCrop(crop);
+            if (targetSlot == null || !targetSlot.IsEmpty) { Hide(); return; }
+            if (InventoryManager.Instance.RemoveItem(crop))
+            {
+                targetSlot.SetCrop(crop);
+            }
         }
+        else if (item is BoostData boost)
+        {
+            if (InventoryManager.Instance.RemoveItem(boost))
+            {
+                BoostManager.Instance.ActivateBoost(boost);
+            }
+        }
+        
         Hide();
     }
 }

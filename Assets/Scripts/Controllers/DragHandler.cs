@@ -7,8 +7,6 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 {
     private GridSlot _slot;
     private Transform _visualTransform;
-    private int _originalSortingOrder;
-    private SpriteRenderer _visualRenderer;
     private BoxCollider2D _collider;
     private bool _isDragging = false;
     private bool _dropHandled = false;
@@ -34,22 +32,22 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         // Disable collider so we don't raycast into ourselves while testing drop
         _collider.enabled = false;
 
-        GameObject visualObj = _slot.GetVisualObject();
-        _visualTransform = visualObj.transform;
-        _visualRenderer = visualObj.GetComponent<SpriteRenderer>();
-
-        _originalSortingOrder = _visualRenderer.sortingOrder;
-        _visualRenderer.sortingOrder = 100; // Bring to front while dragging
+        _visualTransform = _slot.GetVisualTransform();
+        _slot.SetDragSorting(true); // Bring container to front while dragging
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (_visualTransform != null)
         {
-            Vector3 worldPos = Camera.main.ScreenToWorldPoint(eventData.position);
-            worldPos.z = 0; // Keep in 2D plane
-            // Smooth follow using Lerp for a polished feel
-            _visualTransform.position = Vector3.Lerp(_visualTransform.position, worldPos, 0.5f);
+            // Use the distance between camera and plane for accurate ScreenToWorld conversion
+            float camOffset = Mathf.Abs(Camera.main.transform.position.z);
+            Vector3 screenPos = new Vector3(eventData.position.x, eventData.position.y, camOffset);
+            Vector3 worldPos = Camera.main.ScreenToWorldPoint(screenPos);
+            worldPos.z = 0; 
+            
+            // Higher lerp factor (0.8f) for more responsive but still smooth follow
+            _visualTransform.position = Vector3.Lerp(_visualTransform.position, worldPos, 0.8f);
         }
     }
 
@@ -58,7 +56,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         if (_visualTransform == null) return;
 
         // Reset visual state
-        _visualRenderer.sortingOrder = _originalSortingOrder;
+        _slot.SetDragSorting(false);
 
         // Re-enable collider
         _collider.enabled = true;
@@ -99,9 +97,16 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
                      this._slot.CurrentCrop.cropName == sourceSlot.CurrentCrop.cropName && 
                      sourceSlot.CurrentCrop.nextLevelCrop != null)
             {
-                this._slot.SetCrop(sourceSlot.CurrentCrop.nextLevelCrop);
+                // Cache info BEFORE clearing source slot
+                CropData resultCrop = sourceSlot.CurrentCrop.nextLevelCrop;
+                CropTier originalTier = sourceSlot.CurrentCrop.tier;
+
+                this._slot.SetCrop(resultCrop);
                 sourceSlot.ClearSlot();
                 draggedItem._dropHandled = true;
+
+                // Award XP using cached tier
+                AwardMergeXP(originalTier);
             }
         }
     }
@@ -133,8 +138,15 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
                  nearest.CurrentCrop.cropName == _slot.CurrentCrop.cropName &&
                  _slot.CurrentCrop.nextLevelCrop != null)
         {
-            // Merge
-            nearest.SetCrop(_slot.CurrentCrop.nextLevelCrop);
+            // Cache logic for Snap-To-Merge as well
+            CropData resultCrop = _slot.CurrentCrop.nextLevelCrop;
+            CropTier originalTier = _slot.CurrentCrop.tier;
+
+            nearest.SetCrop(resultCrop);
+            
+            // Award XP before clearing
+            AwardMergeXP(originalTier);
+
             _slot.ClearSlot();
             _dropHandled = true;
         }
@@ -195,5 +207,22 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         {
             Debug.Log($"Slot ({x},{y}) acilamadi. Maliyet: {cost} coin. Yetersiz bakiye.");
         }
+    }
+
+    private void AwardMergeXP(CropTier tier)
+    {
+        if (LevelManager.Instance == null) return;
+
+        float xp = 10f; // T1 base
+        switch (tier)
+        {
+            case CropTier.Common: xp = 10; break;
+            case CropTier.Uncommon: xp = 25; break;
+            case CropTier.Rare: xp = 60; break;
+            case CropTier.Epic: xp = 150; break;
+            case CropTier.Legendary: xp = 400; break;
+        }
+
+        LevelManager.Instance.AddXP(xp);
     }
 }

@@ -56,6 +56,12 @@ public class IncomeManager : MonoBehaviour
 
         if (totalIncome > 0)
         {
+            // Apply Boost Multiplier
+            if (BoostManager.Instance != null)
+            {
+                totalIncome *= BoostManager.Instance.CoinMultiplier;
+            }
+
             // Add previous remainder
             totalIncome += _uncollectedDecimals;
             

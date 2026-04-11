@@ -1,16 +1,12 @@
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewCropData", menuName = "IdleMerge/Crop Data")]
-public class CropData : ScriptableObject
+public class CropData : BaseItemData
 {
-    [Header("Crop Information")]
-    public string cropName;
-    
-    [Tooltip("The visual representation of this crop.")]
-    public Sprite cropSprite;
-
-    [Tooltip("Visual color tint for the crop.")]
-    public Color cropColor = Color.white;
+    // Inherited from BaseItemData:
+    // itemName (replaces cropName)
+    // icon (replaces cropSprite)
+    // itemColor (replaces cropColor)
 
     [Header("Progression")]
     public CropTier tier;
@@ -21,4 +17,9 @@ public class CropData : ScriptableObject
     [Header("Economy")]
     [Tooltip("Amount of coin this crop generates per production tick/cycle.")]
     public float coinPerTick;
+
+    // Compatibility properties for older scripts
+    public string cropName => itemName;
+    public Sprite cropSprite => icon;
+    public Color cropColor => itemColor;
 }
