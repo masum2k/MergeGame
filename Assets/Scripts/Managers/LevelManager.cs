@@ -60,15 +60,15 @@ public class LevelManager : MonoBehaviour
 
     private void Save()
     {
-        PlayerPrefs.SetInt("PlayerLevel", Level);
-        PlayerPrefs.SetFloat("PlayerXP", CurrentXP);
+        SecurePlayerPrefs.SetInt("PlayerLevel", Level);
+        SecurePlayerPrefs.SetFloat("PlayerXP", CurrentXP);
         SaveCoordinator.MarkDirty();
     }
 
     private void Load()
     {
-        Level = PlayerPrefs.GetInt("PlayerLevel", 1);
-        CurrentXP = PlayerPrefs.GetFloat("PlayerXP", 0);
+        Level = SecurePlayerPrefs.GetInt("PlayerLevel", 1);
+        CurrentXP = SecurePlayerPrefs.GetFloat("PlayerXP", 0);
         XPForNextLevel = Mathf.Round(100f * Mathf.Pow(Level, 1.2f));
     }
 }

@@ -78,7 +78,7 @@ public class GameMessageManager : MonoBehaviour
     {
         MessageWrapper wrapper = new MessageWrapper { messages = _messages };
         string json = JsonUtility.ToJson(wrapper);
-        PlayerPrefs.SetString(MESSAGES_KEY, json);
+        SecurePlayerPrefs.SetString(MESSAGES_KEY, json);
         SaveCoordinator.MarkDirty();
     }
 
@@ -86,10 +86,10 @@ public class GameMessageManager : MonoBehaviour
     {
         _messages.Clear();
 
-        if (!PlayerPrefs.HasKey(MESSAGES_KEY))
+        if (!SecurePlayerPrefs.HasKey(MESSAGES_KEY))
             return;
 
-        string json = PlayerPrefs.GetString(MESSAGES_KEY, string.Empty);
+        string json = SecurePlayerPrefs.GetString(MESSAGES_KEY, string.Empty);
         if (string.IsNullOrEmpty(json))
             return;
 

@@ -213,7 +213,7 @@ public class InventoryManager : MonoBehaviour
         }
 
         string json = JsonUtility.ToJson(wrapper);
-        PlayerPrefs.SetString(INVENTORY_SAVE_KEY, json);
+        SecurePlayerPrefs.SetString(INVENTORY_SAVE_KEY, json);
         SaveCoordinator.MarkDirty();
     }
 
@@ -221,7 +221,7 @@ public class InventoryManager : MonoBehaviour
     {
         _items.Clear();
 
-        string json = PlayerPrefs.GetString(INVENTORY_SAVE_KEY, string.Empty);
+        string json = SecurePlayerPrefs.GetString(INVENTORY_SAVE_KEY, string.Empty);
         if (string.IsNullOrWhiteSpace(json))
             return;
 

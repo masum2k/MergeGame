@@ -273,14 +273,14 @@ public class GridManager : MonoBehaviour
                 sb.Append($"{slot.X},{slot.Y},{(int)slot.CurrentCrop.tier};");
             }
         }
-        PlayerPrefs.SetString("GridState", sb.ToString());
+        SecurePlayerPrefs.SetString("GridState", sb.ToString());
         SaveCoordinator.MarkDirty();
     }
 
     public void LoadGridState()
     {
-        if (!PlayerPrefs.HasKey("GridState")) return;
-        string data = PlayerPrefs.GetString("GridState");
+        if (!SecurePlayerPrefs.HasKey("GridState")) return;
+        string data = SecurePlayerPrefs.GetString("GridState");
         if (string.IsNullOrEmpty(data)) return;
 
         string[] entries = data.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);

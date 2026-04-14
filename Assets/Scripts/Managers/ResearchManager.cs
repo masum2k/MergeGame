@@ -357,19 +357,19 @@ public class ResearchManager : MonoBehaviour
 
     private void Save()
     {
-        PlayerPrefs.SetInt(RESEARCH_POINTS_KEY, ResearchPoints);
-        PlayerPrefs.SetInt(RESEARCH_SPENT_KEY, TotalResearchSpent);
-        PlayerPrefs.SetString(UNLOCKED_SKILLS_KEY, string.Join("|", _unlockedSkillIds));
+        SecurePlayerPrefs.SetInt(RESEARCH_POINTS_KEY, ResearchPoints);
+        SecurePlayerPrefs.SetInt(RESEARCH_SPENT_KEY, TotalResearchSpent);
+        SecurePlayerPrefs.SetString(UNLOCKED_SKILLS_KEY, string.Join("|", _unlockedSkillIds));
         SaveCoordinator.MarkDirty();
     }
 
     private void Load()
     {
-        ResearchPoints = PlayerPrefs.GetInt(RESEARCH_POINTS_KEY, 0);
-        TotalResearchSpent = PlayerPrefs.GetInt(RESEARCH_SPENT_KEY, 0);
+        ResearchPoints = SecurePlayerPrefs.GetInt(RESEARCH_POINTS_KEY, 0);
+        TotalResearchSpent = SecurePlayerPrefs.GetInt(RESEARCH_SPENT_KEY, 0);
         _unlockedSkillIds.Clear();
 
-        string unlockedRaw = PlayerPrefs.GetString(UNLOCKED_SKILLS_KEY, string.Empty);
+        string unlockedRaw = SecurePlayerPrefs.GetString(UNLOCKED_SKILLS_KEY, string.Empty);
         if (!string.IsNullOrEmpty(unlockedRaw))
         {
             string[] parts = unlockedRaw.Split('|');

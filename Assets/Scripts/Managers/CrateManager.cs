@@ -90,7 +90,7 @@ public class CrateManager : MonoBehaviour
                 return rewards;
             }
 
-            PlayerPrefs.SetString(DAILY_CHEST_KEY, DateTime.UtcNow.ToBinary().ToString());
+            SecurePlayerPrefs.SetString(DAILY_CHEST_KEY, DateTime.UtcNow.ToBinary().ToString());
             SaveCoordinator.MarkDirty();
 
             object dailyReward = crate.RollDrop();
@@ -196,7 +196,7 @@ public class CrateManager : MonoBehaviour
 
     private void SaveUnlockedCrops()
     {
-        PlayerPrefs.SetString(UNLOCKED_CROPS_KEY, string.Join("|", _unlockedCropNames));
+        SecurePlayerPrefs.SetString(UNLOCKED_CROPS_KEY, string.Join("|", _unlockedCropNames));
         SaveCoordinator.MarkDirty();
     }
 
@@ -204,7 +204,7 @@ public class CrateManager : MonoBehaviour
     {
         _unlockedCropNames.Clear();
 
-        string raw = PlayerPrefs.GetString(UNLOCKED_CROPS_KEY, string.Empty);
+        string raw = SecurePlayerPrefs.GetString(UNLOCKED_CROPS_KEY, string.Empty);
         if (string.IsNullOrWhiteSpace(raw))
             return;
 
@@ -222,10 +222,10 @@ public class CrateManager : MonoBehaviour
     {
         lastTime = DateTime.MinValue;
 
-        if (!PlayerPrefs.HasKey(DAILY_CHEST_KEY))
+        if (!SecurePlayerPrefs.HasKey(DAILY_CHEST_KEY))
             return false;
 
-        string raw = PlayerPrefs.GetString(DAILY_CHEST_KEY, string.Empty);
+        string raw = SecurePlayerPrefs.GetString(DAILY_CHEST_KEY, string.Empty);
         if (string.IsNullOrWhiteSpace(raw))
             return false;
 

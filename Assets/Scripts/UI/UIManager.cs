@@ -65,6 +65,9 @@ public class UIManager : MonoBehaviour
         // Ensure right-side meta menu exists (hamburger button target)
         EnsureUIComponent<MetaMenuUI>("MetaMenuUI_Auto");
 
+        // Ensure progression hub exists (streak only)
+        EnsureUIComponent<ProgressionHubUI>("ProgressionHubUI_Auto");
+
         // Ensure crop compendium exists (triggered from farm page button)
         EnsureUIComponent<CropCompendiumUI>("CropCompendiumUI_Auto");
     }
@@ -227,6 +230,12 @@ public class UIManager : MonoBehaviour
                 if (InventoryUI.Instance != null) InventoryUI.Instance.Show(null);
             });
 
+        // --- Progression Hub Button (streak) ---
+        BuildTopBarButton(topBar.transform, "Ilerleme", new Color(0.28f, 0.56f, 0.32f),
+            new Vector2(-320f, 0f), () => {
+                if (ProgressionHubUI.Instance != null) ProgressionHubUI.Instance.Toggle();
+            }, 0f, 150f);
+
         // --- Hamburger Menu Button (far right, always visible) ---
         BuildTopBarButton(topBar.transform, "|||", new Color(0.32f, 0.36f, 0.42f),
             new Vector2(-20f, 0f), () => {
@@ -234,7 +243,7 @@ public class UIManager : MonoBehaviour
             }, 90f);
     }
 
-    private void BuildTopBarButton(Transform parent, string label, Color bgColor, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick, float labelRotationZ = 0f)
+    private void BuildTopBarButton(Transform parent, string label, Color bgColor, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick, float labelRotationZ = 0f, float width = 130f)
     {
         GameObject btnObj = new GameObject(label + "Button_TopBar");
         btnObj.transform.SetParent(parent, false);
@@ -259,7 +268,7 @@ public class UIManager : MonoBehaviour
         btnRt.anchorMax = new Vector2(1f, 0.5f);
         btnRt.pivot = new Vector2(1f, 0.5f);
         btnRt.anchoredPosition = anchoredPos;
-        btnRt.sizeDelta = new Vector2(130f, 50f);
+        btnRt.sizeDelta = new Vector2(width, 50f);
 
         // Label
         GameObject labelObj = new GameObject("Label");

@@ -588,7 +588,7 @@ public class FactoryManager : MonoBehaviour
     {
         OfferSaveWrapper wrapper = new OfferSaveWrapper { offers = _offers };
         string json = JsonUtility.ToJson(wrapper);
-        PlayerPrefs.SetString(OFFERS_SAVE_KEY, json);
+        SecurePlayerPrefs.SetString(OFFERS_SAVE_KEY, json);
         SaveCoordinator.MarkDirty();
     }
 
@@ -596,10 +596,10 @@ public class FactoryManager : MonoBehaviour
     {
         _offers.Clear();
 
-        if (!PlayerPrefs.HasKey(OFFERS_SAVE_KEY))
+        if (!SecurePlayerPrefs.HasKey(OFFERS_SAVE_KEY))
             return;
 
-        string json = PlayerPrefs.GetString(OFFERS_SAVE_KEY, string.Empty);
+        string json = SecurePlayerPrefs.GetString(OFFERS_SAVE_KEY, string.Empty);
         if (string.IsNullOrEmpty(json))
             return;
 

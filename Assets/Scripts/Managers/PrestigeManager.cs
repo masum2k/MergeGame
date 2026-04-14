@@ -157,15 +157,15 @@ public class PrestigeManager : MonoBehaviour
 
     private void Save()
     {
-        PlayerPrefs.SetInt(PRESTIGE_LEVEL_KEY, Mathf.Max(1, PrestigeLevel));
-        PlayerPrefs.SetInt(PRESTIGE_FACTORY_COMPLETIONS_KEY, Mathf.Max(0, FactoryCompletions));
+        SecurePlayerPrefs.SetInt(PRESTIGE_LEVEL_KEY, Mathf.Max(1, PrestigeLevel));
+        SecurePlayerPrefs.SetInt(PRESTIGE_FACTORY_COMPLETIONS_KEY, Mathf.Max(0, FactoryCompletions));
         SaveCoordinator.MarkDirty();
     }
 
     private void Load()
     {
-        PrestigeLevel = Mathf.Max(1, PlayerPrefs.GetInt(PRESTIGE_LEVEL_KEY, 1));
-        FactoryCompletions = Mathf.Max(0, PlayerPrefs.GetInt(PRESTIGE_FACTORY_COMPLETIONS_KEY, 0));
+        PrestigeLevel = Mathf.Max(1, SecurePlayerPrefs.GetInt(PRESTIGE_LEVEL_KEY, 1));
+        FactoryCompletions = Mathf.Max(0, SecurePlayerPrefs.GetInt(PRESTIGE_FACTORY_COMPLETIONS_KEY, 0));
         OnPrestigeDataChanged?.Invoke();
     }
 }

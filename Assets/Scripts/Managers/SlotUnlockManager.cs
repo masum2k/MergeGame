@@ -49,15 +49,15 @@ public class SlotUnlockManager : MonoBehaviour
             coords.Add($"{pos.x},{pos.y}");
         }
         string data = string.Join(";", coords);
-        PlayerPrefs.SetString("UnlockedSlots", data);
+        SecurePlayerPrefs.SetString("UnlockedSlots", data);
         SaveCoordinator.MarkDirty();
     }
 
     private void Load()
     {
-        if (!PlayerPrefs.HasKey("UnlockedSlots")) return;
+        if (!SecurePlayerPrefs.HasKey("UnlockedSlots")) return;
 
-        string data = PlayerPrefs.GetString("UnlockedSlots");
+        string data = SecurePlayerPrefs.GetString("UnlockedSlots");
         if (string.IsNullOrEmpty(data)) return;
 
         string[] pairs = data.Split(';');

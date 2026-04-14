@@ -32,6 +32,9 @@ public class GameAutoSetup : MonoBehaviour
         EnsureSingleton<FactoryManager>("FactoryManager");
         EnsureSingleton<GameMessageManager>("GameMessageManager");
         EnsureSingleton<PrestigeManager>("PrestigeManager");
+        EnsureSingleton<ProgressionTelemetryManager>("ProgressionTelemetryManager");
+        EnsureSingleton<QuestManager>("QuestManager");
+        EnsureSingleton<StreakRewardManager>("StreakRewardManager");
 
         // SlotUnlockManager must exist BEFORE GridManager.Start() runs
         SlotUnlockManager unlockMgr = EnsureSingleton<SlotUnlockManager>("SlotUnlockManager");

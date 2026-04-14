@@ -1,9 +1,15 @@
 using UnityEngine;
 using System;
+using System.Collections;
 
 public class IncomeManager : MonoBehaviour
 {
     public static IncomeManager Instance { get; private set; }
+
+    private const string LAST_ACTIVE_UTC_TICKS_KEY = "IncomeLastActiveUtcTicks";
+    private const string DECIMAL_CARRY_KEY = "IncomeDecimalCarry";
+    private const float MAX_OFFLINE_SECONDS = 8f * 60f * 60f;
+    private const float MIN_OFFLINE_SECONDS = 10f;
 
     [Header("Settings")]
     [Tooltip("How often in seconds the income is collected.")]
@@ -18,11 +24,19 @@ public class IncomeManager : MonoBehaviour
     private float _timer;
     // Buffer to hold decimal remainders between ticks so we don't lose value
     private float _uncollectedDecimals = 0f;
+    private Coroutine _offlineInitCoroutine;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        _uncollectedDecimals = Mathf.Clamp(SecurePlayerPrefs.GetFloat(DECIMAL_CARRY_KEY, 0f), 0f, 0.9999f);
+    }
+
+    private void Start()
+    {
+        _offlineInitCoroutine = StartCoroutine(ApplyOfflineProgressionWhenReady());
     }
 
     private void Update()
@@ -38,43 +52,166 @@ public class IncomeManager : MonoBehaviour
         }
     }
 
-    private void CollectIncome()
+    private void OnApplicationPause(bool pauseStatus)
     {
-        float totalIncome = 0f;
-
-        // Iterate through all slots on the board
-        var allSlots = gridManager.GetAllSlots();
-        if (allSlots == null) return;
-
-        foreach (var slot in allSlots)
+        if (pauseStatus)
         {
-            if (slot != null && !slot.IsEmpty && slot.CurrentCrop != null)
+            PersistRuntimeState(DateTime.UtcNow);
+        }
+        else
+        {
+            TryStartOfflineProgressionCheck();
+        }
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus)
+        {
+            TryStartOfflineProgressionCheck();
+        }
+        else
+        {
+            PersistRuntimeState(DateTime.UtcNow);
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        PersistRuntimeState(DateTime.UtcNow);
+    }
+
+    private void TryStartOfflineProgressionCheck()
+    {
+        if (_offlineInitCoroutine != null)
+            return;
+
+        if (CanApplyOfflineProgression())
+        {
+            TryApplyOfflineProgression();
+            return;
+        }
+
+        _offlineInitCoroutine = StartCoroutine(ApplyOfflineProgressionWhenReady());
+    }
+
+    private IEnumerator ApplyOfflineProgressionWhenReady()
+    {
+        // Allow other startup systems to restore world state before we compute offline reward.
+        yield return null;
+
+        float timeout = 3f;
+        while (timeout > 0f && !CanApplyOfflineProgression())
+        {
+            timeout -= Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        TryApplyOfflineProgression();
+        _offlineInitCoroutine = null;
+    }
+
+    private bool CanApplyOfflineProgression()
+    {
+        return gridManager != null && CurrencyManager.Instance != null;
+    }
+
+    private void TryApplyOfflineProgression()
+    {
+        DateTime nowUtc = DateTime.UtcNow;
+
+        if (!TryGetLastActiveUtc(out DateTime lastActiveUtc))
+        {
+            PersistRuntimeState(nowUtc);
+            return;
+        }
+
+        double elapsedSecondsRaw = (nowUtc - lastActiveUtc).TotalSeconds;
+        if (elapsedSecondsRaw <= MIN_OFFLINE_SECONDS)
+        {
+            PersistRuntimeState(nowUtc);
+            return;
+        }
+
+        if (elapsedSecondsRaw < 0d)
+        {
+            PersistRuntimeState(nowUtc);
+            return;
+        }
+
+        float elapsedSeconds = Mathf.Min((float)elapsedSecondsRaw, MAX_OFFLINE_SECONDS);
+        if (elapsedSeconds <= 0f)
+        {
+            PersistRuntimeState(nowUtc);
+            return;
+        }
+
+        float incomePerSecond = CalculateIncomePerSecond(includeBoostMultiplier: false);
+        if (incomePerSecond <= 0f)
+        {
+            PersistRuntimeState(nowUtc);
+            return;
+        }
+
+        double totalIncome = (incomePerSecond * elapsedSeconds) + _uncollectedDecimals;
+        int incomeAsInt = Mathf.FloorToInt((float)Math.Min(int.MaxValue, totalIncome));
+
+        _uncollectedDecimals = (float)(totalIncome - incomeAsInt);
+        _uncollectedDecimals = Mathf.Clamp(_uncollectedDecimals, 0f, 0.9999f);
+
+        if (incomeAsInt > 0 && CurrencyManager.Instance != null)
+        {
+            CurrencyManager.Instance.AddCoin(incomeAsInt);
+            OnIncomeCollected?.Invoke(incomeAsInt);
+
+            if (GameMessageManager.Instance != null)
             {
-                // In our math: coinPerTick is interpreted as "income per second"
-                float slotIncome = slot.CurrentCrop.coinPerTick;
+                TimeSpan duration = TimeSpan.FromSeconds(elapsedSeconds);
+                string prettyDuration = duration.TotalHours >= 1d
+                    ? $"{Mathf.FloorToInt((float)duration.TotalHours)}sa {duration.Minutes}dk"
+                    : $"{duration.Minutes}dk {duration.Seconds}sn";
 
-                if (ResearchManager.Instance != null)
-                {
-                    slotIncome *= ResearchManager.Instance.GetCropIncomeMultiplier(slot.CurrentCrop);
-                }
-
-                if (PrestigeManager.Instance != null)
-                {
-                    slotIncome *= PrestigeManager.Instance.GetIncomeMultiplier();
-                }
-
-                totalIncome += slotIncome;
+                GameMessageManager.Instance.PushMessage($"Offline gelir: +{incomeAsInt} Coin ({prettyDuration})");
             }
         }
 
+        PersistRuntimeState(nowUtc);
+    }
+
+    private bool TryGetLastActiveUtc(out DateTime lastActiveUtc)
+    {
+        lastActiveUtc = DateTime.MinValue;
+
+        if (!SecurePlayerPrefs.HasKey(LAST_ACTIVE_UTC_TICKS_KEY))
+            return false;
+
+        string rawTicks = SecurePlayerPrefs.GetString(LAST_ACTIVE_UTC_TICKS_KEY, string.Empty);
+        if (!long.TryParse(rawTicks, out long ticks))
+            return false;
+
+        try
+        {
+            lastActiveUtc = DateTime.FromBinary(ticks);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void PersistRuntimeState(DateTime nowUtc)
+    {
+        SecurePlayerPrefs.SetString(LAST_ACTIVE_UTC_TICKS_KEY, nowUtc.ToBinary().ToString());
+        SecurePlayerPrefs.SetFloat(DECIMAL_CARRY_KEY, Mathf.Clamp(_uncollectedDecimals, 0f, 0.9999f));
+    }
+
+    private void CollectIncome()
+    {
+        float totalIncome = CalculateIncomePerSecond(includeBoostMultiplier: true);
+
         if (totalIncome > 0)
         {
-            // Apply Boost Multiplier
-            if (BoostManager.Instance != null)
-            {
-                totalIncome *= BoostManager.Instance.CoinMultiplier;
-            }
-
             // Add previous remainder
             totalIncome += _uncollectedDecimals;
             
@@ -94,5 +231,43 @@ public class IncomeManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    private float CalculateIncomePerSecond(bool includeBoostMultiplier)
+    {
+        if (gridManager == null)
+            return 0f;
+
+        float totalIncome = 0f;
+        var allSlots = gridManager.GetAllSlots();
+        if (allSlots == null)
+            return 0f;
+
+        foreach (var slot in allSlots)
+        {
+            if (slot == null || slot.IsEmpty || slot.CurrentCrop == null)
+                continue;
+
+            float slotIncome = slot.CurrentCrop.coinPerTick;
+
+            if (ResearchManager.Instance != null)
+            {
+                slotIncome *= ResearchManager.Instance.GetCropIncomeMultiplier(slot.CurrentCrop);
+            }
+
+            if (PrestigeManager.Instance != null)
+            {
+                slotIncome *= PrestigeManager.Instance.GetIncomeMultiplier();
+            }
+
+            totalIncome += slotIncome;
+        }
+
+        if (includeBoostMultiplier && BoostManager.Instance != null)
+        {
+            totalIncome *= BoostManager.Instance.CoinMultiplier;
+        }
+
+        return Mathf.Max(0f, totalIncome);
     }
 }

@@ -9,6 +9,17 @@ Bu dokuman, bu proje icin Google Play yayini oncesi teknik kontrol listesidir.
 3. Version (bundleVersion) ve Version Code (AndroidBundleVersionCode) degerlerini arttir.
 4. Version code'un her yuklemede tekil ve artan oldugunu dogrula.
 
+### 1.5 Keystore ve Imzalama (Cok Kritik)
+
+1. Google Play tarafinda Play App Signing'i aktif kullan (onerilen).
+2. Unity icinde release keystore olustur veya mevcut kurumsal keystore'u bagla (Project Settings > Player > Publishing Settings).
+3. Keystore sifresi, alias adi ve alias sifresini parola yoneticisine (1Password/Bitwarden/kurumsal vault) kaydet.
+4. Keystore dosyasini (jks/keystore) en az iki ayri guvenli lokasyona yedekle (kurumsal secret storage + offline sifreli backup).
+5. Keystore dosyasini repoya asla commitleme; gizli dosya politikasina dahil et.
+6. SHA-1 ve SHA-256 sertifika fingerprint'lerini dokumante et (Google API/Firebase entegrasyonlari icin).
+7. Yeni cihazda imzali test build alip yukleme dogrulamasi yaparak backup'in gercekten calistigini test et.
+8. Not: Upload key kaybi durumunda Play App Signing aciksa upload key reset sureci var; app signing key kaybi ise kritik ve surec daha zorludur.
+
 ## 2. Android Build Zorunluluklari
 
 1. Scripting Backend: IL2CPP.

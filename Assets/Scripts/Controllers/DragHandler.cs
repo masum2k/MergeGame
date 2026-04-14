@@ -146,6 +146,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
                 // Award XP using cached tier
                 AwardMergeXP(originalTier);
+                ProgressionSignals.Raise(ProgressMetricType.MergeCrop, 1);
 
                 GridManager.Instance.SaveGridState();
             }
@@ -192,6 +193,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
             
             // Award XP before clearing
             AwardMergeXP(originalTier);
+            ProgressionSignals.Raise(ProgressMetricType.MergeCrop, 1);
 
             _slot.ClearSlot();
             _dropHandled = true;

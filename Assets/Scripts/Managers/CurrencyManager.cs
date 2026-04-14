@@ -43,7 +43,7 @@ public class CurrencyManager : MonoBehaviour
 
     private void Start()
     {
-        if (!PlayerPrefs.HasKey(COIN_KEY))
+        if (!SecurePlayerPrefs.HasKey(COIN_KEY))
         {
             // Give starting values only for first run
             Debug.Log("<color=cyan>[CurrencyManager] First run detected! Giving starter 100 Coins and 10 Gems.</color>");
@@ -54,17 +54,17 @@ public class CurrencyManager : MonoBehaviour
 
     private void Save()
     {
-        PlayerPrefs.SetInt(COIN_KEY, Coin);
-        PlayerPrefs.SetInt(GEM_KEY, Gem);
-        PlayerPrefs.SetInt(LIFETIME_COIN_KEY, LifetimeCoinEarned);
+        SecurePlayerPrefs.SetInt(COIN_KEY, Coin);
+        SecurePlayerPrefs.SetInt(GEM_KEY, Gem);
+        SecurePlayerPrefs.SetInt(LIFETIME_COIN_KEY, LifetimeCoinEarned);
         SaveCoordinator.MarkDirty();
     }
 
     private void Load()
     {
-        Coin = PlayerPrefs.GetInt(COIN_KEY, 0);
-        Gem = PlayerPrefs.GetInt(GEM_KEY, 0);
-        LifetimeCoinEarned = PlayerPrefs.GetInt(LIFETIME_COIN_KEY, 0);
+        Coin = SecurePlayerPrefs.GetInt(COIN_KEY, 0);
+        Gem = SecurePlayerPrefs.GetInt(GEM_KEY, 0);
+        LifetimeCoinEarned = SecurePlayerPrefs.GetInt(LIFETIME_COIN_KEY, 0);
 
         ApplyCoinCap();
         
