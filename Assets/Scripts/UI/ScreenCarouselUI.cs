@@ -38,6 +38,11 @@ public class ScreenCarouselUI : MonoBehaviour
     private Vector3 _baseCameraPosition;
     private bool _cameraBaseCached;
     private bool _clickButtonAttached;
+    private RectTransform _bottomNavRoot;
+    private readonly Image[] _bottomNavButtonBackgrounds = new Image[4];
+
+    private readonly Color _bottomNavActiveColor = new Color(0.24f, 0.56f, 0.96f, 1f);
+    private readonly Color _bottomNavIdleColor = new Color(0.22f, 0.24f, 0.32f, 0.94f);
 
     private void Start()
     {
@@ -50,6 +55,7 @@ public class ScreenCarouselUI : MonoBehaviour
         CacheCameraBaseIfNeeded();
 
         BuildRoot(canvas.transform);
+        BuildBottomNavigation(canvas.transform);
         BuildPages();
         SetupIdlePositions();
         ApplyScreenState();
@@ -123,6 +129,123 @@ public class ScreenCarouselUI : MonoBehaviour
 
         // Keep pages under top bar and above world objects.
         _root.SetAsFirstSibling();
+    }
+
+    private void BuildBottomNavigation(Transform parent)
+    {
+        if (_bottomNavRoot != null)
+            return;
+
+        GameObject navObj = new GameObject("BottomNavigationPane", typeof(RectTransform));
+        navObj.transform.SetParent(parent, false);
+        _bottomNavRoot = navObj.GetComponent<RectTransform>();
+
+        _bottomNavRoot.anchorMin = new Vector2(0f, 0f);
+        _bottomNavRoot.anchorMax = new Vector2(1f, 0f);
+        _bottomNavRoot.pivot = new Vector2(0.5f, 0f);
+        _bottomNavRoot.anchoredPosition = Vector2.zero;
+        _bottomNavRoot.sizeDelta = new Vector2(0f, 82f);
+
+        Image navBg = navObj.AddComponent<Image>();
+        navBg.color = new Color(0.06f, 0.07f, 0.11f, 0.96f);
+
+        // Keep pane above page content but below pop-up overlays.
+        _bottomNavRoot.SetSiblingIndex(1);
+
+        GameObject rowObj = new GameObject("NavRow", typeof(RectTransform));
+        rowObj.transform.SetParent(_bottomNavRoot, false);
+
+        RectTransform rowRt = rowObj.GetComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(0f, 0f);
+        rowRt.anchorMax = new Vector2(1f, 1f);
+        rowRt.offsetMin = new Vector2(8f, 8f);
+        rowRt.offsetMax = new Vector2(-8f, -8f);
+
+        HorizontalLayoutGroup hlg = rowObj.AddComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 8f;
+        hlg.childControlWidth = true;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = true;
+        hlg.childForceExpandHeight = true;
+
+        CreateBottomNavButton(rowObj.transform, "Market", (int)ScreenId.Market);
+        CreateBottomNavButton(rowObj.transform, "Tarla", (int)ScreenId.Farm);
+        CreateBottomNavButton(rowObj.transform, "Fabrika", (int)ScreenId.Factory);
+        CreateBottomNavButton(rowObj.transform, "Yetenek", (int)ScreenId.SkillTree);
+
+        UpdateBottomNavigationVisuals();
+    }
+
+    private void CreateBottomNavButton(Transform parent, string label, int targetIndex)
+    {
+        GameObject btnObj = new GameObject("Nav_" + label, typeof(RectTransform));
+        btnObj.transform.SetParent(parent, false);
+
+        Image bg = btnObj.AddComponent<Image>();
+        bg.color = _bottomNavIdleColor;
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = bg;
+        btn.onClick.AddListener(() => OnBottomNavPressed(targetIndex));
+
+        GameObject txtObj = new GameObject("Text", typeof(RectTransform));
+        txtObj.transform.SetParent(btnObj.transform, false);
+        TMPro.TextMeshProUGUI txt = txtObj.AddComponent<TMPro.TextMeshProUGUI>();
+        txt.text = label;
+        txt.fontSize = 19;
+        txt.fontStyle = TMPro.FontStyles.Bold;
+        txt.alignment = TMPro.TextAlignmentOptions.Center;
+        txt.color = new Color(0.9f, 0.94f, 1f);
+
+        RectTransform txtRt = txtObj.GetComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = Vector2.zero;
+        txtRt.offsetMax = Vector2.zero;
+
+        _bottomNavButtonBackgrounds[targetIndex] = bg;
+    }
+
+    private void OnBottomNavPressed(int targetIndex)
+    {
+        if (_isAnimating || _pages == null || _pages.Length == 0)
+            return;
+
+        int safeTarget = Wrap(targetIndex);
+        if (safeTarget == _currentIndex)
+            return;
+
+        if (_snapCoroutine != null)
+        {
+            StopCoroutine(_snapCoroutine);
+            _snapCoroutine = null;
+        }
+
+        _pointerDown = false;
+        _isDraggingPages = false;
+        _gestureLockedVertical = false;
+        _dragOffsetX = 0f;
+
+        _currentIndex = safeTarget;
+        SetupIdlePositions();
+        ApplyScreenState();
+    }
+
+    private void UpdateBottomNavigationVisuals()
+    {
+        for (int i = 0; i < _bottomNavButtonBackgrounds.Length; i++)
+        {
+            Image bg = _bottomNavButtonBackgrounds[i];
+            if (bg == null)
+                continue;
+
+            bg.color = i == _currentIndex ? _bottomNavActiveColor : _bottomNavIdleColor;
+        }
+    }
+
+    private bool IsPointerOnBottomNavigation(Vector2 screenPosition)
+    {
+        return _bottomNavRoot != null && RectTransformUtility.RectangleContainsScreenPoint(_bottomNavRoot, screenPosition, null);
     }
 
     private void BuildPages()
@@ -290,6 +413,9 @@ public class ScreenCarouselUI : MonoBehaviour
     private void BeginPointer(Vector2 pointerPosition)
     {
         if (_isAnimating)
+            return;
+
+        if (IsPointerOnBottomNavigation(pointerPosition))
             return;
 
         _pointerDown = true;
@@ -485,6 +611,8 @@ public class ScreenCarouselUI : MonoBehaviour
         {
             CropCompendiumUI.Instance.Hide();
         }
+
+        UpdateBottomNavigationVisuals();
     }
 
     private void ActivatePage(int index, float x)
@@ -579,7 +707,7 @@ public class ScreenCarouselUI : MonoBehaviour
         if (canvas == null)
             return;
 
-        Transform clickButton = canvas.transform.Find("ClickButton");
+        Transform clickButton = FindByNameRecursive(canvas.transform, "ClickButton");
         if (clickButton == null)
             return;
 
@@ -598,5 +726,20 @@ public class ScreenCarouselUI : MonoBehaviour
         }
 
         _clickButtonAttached = true;
+    }
+
+    private static Transform FindByNameRecursive(Transform root, string nameToFind)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(nameToFind))
+            return null;
+
+        Transform[] all = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].name == nameToFind)
+                return all[i];
+        }
+
+        return null;
     }
 }

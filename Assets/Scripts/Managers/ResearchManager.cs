@@ -360,7 +360,7 @@ public class ResearchManager : MonoBehaviour
         PlayerPrefs.SetInt(RESEARCH_POINTS_KEY, ResearchPoints);
         PlayerPrefs.SetInt(RESEARCH_SPENT_KEY, TotalResearchSpent);
         PlayerPrefs.SetString(UNLOCKED_SKILLS_KEY, string.Join("|", _unlockedSkillIds));
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()

@@ -50,7 +50,7 @@ public class SlotUnlockManager : MonoBehaviour
         }
         string data = string.Join(";", coords);
         PlayerPrefs.SetString("UnlockedSlots", data);
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()
@@ -72,6 +72,8 @@ public class SlotUnlockManager : MonoBehaviour
                 }
             }
         }
+
+        RecalculateUnlockCenter();
     }
 
     /// <summary>
@@ -150,14 +152,9 @@ public class SlotUnlockManager : MonoBehaviour
         // Block unlocking border slots
         if (GridManager.Instance != null)
         {
-            // We need a way to check if slot is border from manager
-            // I'll add a helper to GridManager or just check coordinates here
-            // But since I set border in GridManager based on coords, I can do it here too
-            // Note: GridManager dims are columns/rows. 
-            // A better way is to check the slot component itself.
-            var allSlots = GridManager.Instance.GetAllSlots();
-            foreach(var s in allSlots) {
-                if (s.X == x && s.Y == y && s.IsBorder) return false;
+            if (x <= 0 || y <= 0 || x >= GridManager.Instance.columns - 1 || y >= GridManager.Instance.rows - 1)
+            {
+                return false;
             }
         }
 
@@ -180,5 +177,22 @@ public class SlotUnlockManager : MonoBehaviour
     public HashSet<Vector2Int> GetAllUnlockedPositions()
     {
         return _unlockedSlots;
+    }
+
+    private void RecalculateUnlockCenter()
+    {
+        if (_unlockedSlots.Count == 0)
+        {
+            _unlockCenter = Vector2.zero;
+            return;
+        }
+
+        Vector2 total = Vector2.zero;
+        foreach (Vector2Int pos in _unlockedSlots)
+        {
+            total += new Vector2(pos.x, pos.y);
+        }
+
+        _unlockCenter = total / _unlockedSlots.Count;
     }
 }

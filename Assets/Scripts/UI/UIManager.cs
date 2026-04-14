@@ -288,7 +288,7 @@ public class UIManager : MonoBehaviour
     private void BuildClickerButton(Transform parent)
     {
         // Remove the old ClickButton if it exists in the scene
-        Transform oldBtn = parent.Find("ClickButton");
+        Transform oldBtn = FindByNameRecursive(parent, "ClickButton");
         if (oldBtn != null)
         {
             Object.Destroy(oldBtn.gameObject);
@@ -355,6 +355,21 @@ public class UIManager : MonoBehaviour
 
         // Subscribe to energy changes for button text
         ClickerManager.OnEnergyChanged += UpdateClickButtonEnergy;
+    }
+
+    private static Transform FindByNameRecursive(Transform root, string nameToFind)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(nameToFind))
+            return null;
+
+        Transform[] all = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].name == nameToFind)
+                return all[i];
+        }
+
+        return null;
     }
 
     private void UpdateClickButtonEnergy(int current, int max)

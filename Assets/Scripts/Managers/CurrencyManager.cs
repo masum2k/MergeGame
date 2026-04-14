@@ -57,7 +57,7 @@ public class CurrencyManager : MonoBehaviour
         PlayerPrefs.SetInt(COIN_KEY, Coin);
         PlayerPrefs.SetInt(GEM_KEY, Gem);
         PlayerPrefs.SetInt(LIFETIME_COIN_KEY, LifetimeCoinEarned);
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()

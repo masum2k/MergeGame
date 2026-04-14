@@ -274,7 +274,7 @@ public class GridManager : MonoBehaviour
             }
         }
         PlayerPrefs.SetString("GridState", sb.ToString());
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     public void LoadGridState()
@@ -287,11 +287,12 @@ public class GridManager : MonoBehaviour
         foreach (string entry in entries)
         {
             string[] parts = entry.Split(',');
-            if (parts.Length == 3)
+            if (parts.Length == 3 &&
+                int.TryParse(parts[0], out int x) &&
+                int.TryParse(parts[1], out int y) &&
+                int.TryParse(parts[2], out int tierRaw))
             {
-                int x = int.Parse(parts[0]);
-                int y = int.Parse(parts[1]);
-                CropTier tier = (CropTier)int.Parse(parts[2]);
+                CropTier tier = (CropTier)tierRaw;
 
                 if (x >= 0 && x < columns && y >= 0 && y < rows)
                 {

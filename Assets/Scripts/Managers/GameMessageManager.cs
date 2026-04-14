@@ -79,7 +79,7 @@ public class GameMessageManager : MonoBehaviour
         MessageWrapper wrapper = new MessageWrapper { messages = _messages };
         string json = JsonUtility.ToJson(wrapper);
         PlayerPrefs.SetString(MESSAGES_KEY, json);
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()

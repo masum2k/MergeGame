@@ -26,13 +26,28 @@ public class InventoryManager : MonoBehaviour
     }
     private static InventoryManager _instance;
 
+    private const string INVENTORY_SAVE_KEY = "InventoryDataV1";
+
+    [Serializable]
+    private class InventorySaveEntry
+    {
+        public string itemName;
+        public int count;
+    }
+
+    [Serializable]
+    private class InventorySaveWrapper
+    {
+        public List<InventorySaveEntry> entries = new List<InventorySaveEntry>();
+    }
+
     /// <summary>
     /// Fired whenever any item is added or removed. Listeners should refresh their UI.
     /// </summary>
     public event Action OnInventoryChanged;
 
     // Internal storage: itemName → InventoryEntry
-    private Dictionary<string, InventoryEntry> _items = new Dictionary<string, InventoryEntry>();
+    private readonly Dictionary<string, InventoryEntry> _items = new Dictionary<string, InventoryEntry>();
 
     private class InventoryEntry
     {
@@ -47,10 +62,12 @@ public class InventoryManager : MonoBehaviour
             _instance = this;
             transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
+            Load();
         }
         else if (_instance != this)
         {
             Destroy(gameObject);
+            return;
         }
     }
 
@@ -61,15 +78,20 @@ public class InventoryManager : MonoBehaviour
     {
         if (item == null) return;
 
-        if (_items.ContainsKey(item.itemName))
+        if (_items.TryGetValue(item.itemName, out InventoryEntry existing))
         {
-            _items[item.itemName].count++;
+            existing.count++;
+            if (existing.itemData == null)
+            {
+                existing.itemData = item;
+            }
         }
         else
         {
             _items[item.itemName] = new InventoryEntry { itemData = item, count = 1 };
         }
 
+        Save();
         OnInventoryChanged?.Invoke();
     }
 
@@ -80,13 +102,15 @@ public class InventoryManager : MonoBehaviour
     {
         if (item == null) return false;
 
-        if (_items.ContainsKey(item.itemName) && _items[item.itemName].count > 0)
+        if (_items.TryGetValue(item.itemName, out InventoryEntry entry) && entry.count > 0)
         {
-            _items[item.itemName].count--;
-            if (_items[item.itemName].count <= 0)
+            entry.count--;
+            if (entry.count <= 0)
             {
                 _items.Remove(item.itemName);
             }
+
+            Save();
             OnInventoryChanged?.Invoke();
             return true;
         }
@@ -99,9 +123,9 @@ public class InventoryManager : MonoBehaviour
     /// </summary>
     public int GetCount(string itemName)
     {
-        if (_items.ContainsKey(itemName))
+        if (_items.TryGetValue(itemName, out InventoryEntry entry))
         {
-            return _items[itemName].count;
+            return entry.count;
         }
         return 0;
     }
@@ -115,10 +139,9 @@ public class InventoryManager : MonoBehaviour
         if (string.IsNullOrWhiteSpace(itemName) || amount <= 0)
             return false;
 
-        if (!_items.ContainsKey(itemName))
+        if (!_items.TryGetValue(itemName, out InventoryEntry entry))
             return false;
 
-        InventoryEntry entry = _items[itemName];
         if (entry.count < amount)
             return false;
 
@@ -128,6 +151,7 @@ public class InventoryManager : MonoBehaviour
             _items.Remove(itemName);
         }
 
+        Save();
         OnInventoryChanged?.Invoke();
         return true;
     }
@@ -140,9 +164,14 @@ public class InventoryManager : MonoBehaviour
         List<BaseItemData> result = new List<BaseItemData>();
         foreach (var kvp in _items)
         {
+            TryResolveItemData(kvp.Key, kvp.Value);
+
             if (kvp.Value.count > 0)
             {
-                result.Add(kvp.Value.itemData);
+                if (kvp.Value.itemData != null)
+                {
+                    result.Add(kvp.Value.itemData);
+                }
             }
         }
         return result;
@@ -156,11 +185,93 @@ public class InventoryManager : MonoBehaviour
         List<T> result = new List<T>();
         foreach (var kvp in _items)
         {
+            TryResolveItemData(kvp.Key, kvp.Value);
+
             if (kvp.Value.itemData is T item && kvp.Value.count > 0)
             {
                 result.Add(item);
             }
         }
         return result;
+    }
+
+    private void Save()
+    {
+        InventorySaveWrapper wrapper = new InventorySaveWrapper();
+
+        foreach (var kvp in _items)
+        {
+            int count = Mathf.Max(0, kvp.Value.count);
+            if (count <= 0)
+                continue;
+
+            wrapper.entries.Add(new InventorySaveEntry
+            {
+                itemName = kvp.Key,
+                count = count
+            });
+        }
+
+        string json = JsonUtility.ToJson(wrapper);
+        PlayerPrefs.SetString(INVENTORY_SAVE_KEY, json);
+        SaveCoordinator.MarkDirty();
+    }
+
+    private void Load()
+    {
+        _items.Clear();
+
+        string json = PlayerPrefs.GetString(INVENTORY_SAVE_KEY, string.Empty);
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+
+        InventorySaveWrapper wrapper = JsonUtility.FromJson<InventorySaveWrapper>(json);
+        if (wrapper == null || wrapper.entries == null)
+            return;
+
+        for (int i = 0; i < wrapper.entries.Count; i++)
+        {
+            InventorySaveEntry saveEntry = wrapper.entries[i];
+            if (saveEntry == null || string.IsNullOrWhiteSpace(saveEntry.itemName))
+                continue;
+
+            int safeCount = Mathf.Max(0, saveEntry.count);
+            if (safeCount <= 0)
+                continue;
+
+            _items[saveEntry.itemName] = new InventoryEntry
+            {
+                itemData = ResolveItemDataByName(saveEntry.itemName),
+                count = safeCount
+            };
+        }
+    }
+
+    private bool TryResolveItemData(string itemName, InventoryEntry entry)
+    {
+        if (entry == null)
+            return false;
+
+        if (entry.itemData != null)
+            return true;
+
+        entry.itemData = ResolveItemDataByName(itemName);
+        return entry.itemData != null;
+    }
+
+    private BaseItemData ResolveItemDataByName(string itemName)
+    {
+        if (string.IsNullOrWhiteSpace(itemName) || GameContentGenerator.Instance == null)
+            return null;
+
+        CropData crop = GameContentGenerator.Instance.GetCropByName(itemName);
+        if (crop != null)
+            return crop;
+
+        BoostData boost = GameContentGenerator.Instance.GetBoostByName(itemName);
+        if (boost != null)
+            return boost;
+
+        return null;
     }
 }

@@ -39,6 +39,7 @@ public class FactoryScreenPage : MonoBehaviour
     private TextMeshProUGUI _feedbackText;
     private bool _built;
     private float _feedbackTimer;
+    private float _stateRefreshTimer;
     private RewardFilter _activeFilter = RewardFilter.All;
 
     private void Start()
@@ -79,6 +80,11 @@ public class FactoryScreenPage : MonoBehaviour
         if (!_built || !gameObject.activeInHierarchy)
             return;
 
+        _stateRefreshTimer += Time.unscaledDeltaTime;
+        if (_stateRefreshTimer < 0.25f)
+            return;
+
+        _stateRefreshTimer = 0f;
         RefreshCardStatesOnly();
     }
 

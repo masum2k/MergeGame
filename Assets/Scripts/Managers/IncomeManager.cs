@@ -29,11 +29,12 @@ public class IncomeManager : MonoBehaviour
     {
         if (gridManager == null) return;
 
+        float safeInterval = Mathf.Max(0.01f, collectionInterval);
         _timer += Time.deltaTime;
-        if (_timer >= collectionInterval)
+        while (_timer >= safeInterval)
         {
             CollectIncome();
-            _timer = 0f;
+            _timer -= safeInterval;
         }
     }
 
@@ -85,10 +86,12 @@ public class IncomeManager : MonoBehaviour
 
             if (incomeAsInt > 0)
             {
-                CurrencyManager.Instance.AddCoin(incomeAsInt);
-                // Trigger event for visual feedback (e.g. UIManager)
-                OnIncomeCollected?.Invoke(incomeAsInt);
-                Debug.Log($"Pasif gelir eklendi: {incomeAsInt}");
+                if (CurrencyManager.Instance != null)
+                {
+                    CurrencyManager.Instance.AddCoin(incomeAsInt);
+                    // Trigger event for visual feedback (e.g. UIManager)
+                    OnIncomeCollected?.Invoke(incomeAsInt);
+                }
             }
         }
     }

@@ -19,6 +19,9 @@ public class GameAutoSetup : MonoBehaviour
         // =============================================
         //  STEP 1: Ensure Singletons
         // =============================================
+        EnsureSingleton<SaveCoordinator>("SaveCoordinator");
+        EnsureSingleton<MobileRuntimeBootstrap>("MobileRuntimeBootstrap");
+
         EnsureSingleton<CurrencyManager>("CurrencyManager");
         EnsureSingleton<InventoryManager>("InventoryManager");
         EnsureSingleton<CrateManager>("CrateManager");

@@ -9,6 +9,7 @@ public class GameContentGenerator : MonoBehaviour
 {
     public static GameContentGenerator Instance { get; private set; }
     public List<CropData> AllCrops = new List<CropData>();
+    public List<BoostData> AllBoosts = new List<BoostData>();
     private Sprite _defaultSprite;
 
     private void Awake()
@@ -37,6 +38,14 @@ public class GameContentGenerator : MonoBehaviour
             return null;
 
         return AllCrops.Find(c => c != null && c.itemName == cropName);
+    }
+
+    public BoostData GetBoostByName(string boostName)
+    {
+        if (string.IsNullOrWhiteSpace(boostName))
+            return null;
+
+        return AllBoosts.Find(b => b != null && b.itemName == boostName);
     }
 
     private void EnsureDefaultSprite()
@@ -123,6 +132,8 @@ public class GameContentGenerator : MonoBehaviour
         }
 
         // 2. Generate Boosts
+        AllBoosts.Clear();
+
         BoostData incomeBoost = ScriptableObject.CreateInstance<BoostData>();
         incomeBoost.itemName = "2x Kazanc Iksiri";
         incomeBoost.description = "1 dakika boyunca kazanci ikiye katlar.";
@@ -140,6 +151,9 @@ public class GameContentGenerator : MonoBehaviour
         mergeBoost.durationSeconds = 90f;
         mergeBoost.itemColor = new Color(1f, 0.72f, 0.32f);
         mergeBoost.icon = _defaultSprite;
+
+        AllBoosts.Add(incomeBoost);
+        AllBoosts.Add(mergeBoost);
 
         // 3. Generate Chests
         if (CrateManager.Instance != null)

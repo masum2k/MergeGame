@@ -54,19 +54,17 @@ public class CrateManager : MonoBehaviour
 
     public bool IsDailyChestAvailable()
     {
-        if (!PlayerPrefs.HasKey(DAILY_CHEST_KEY)) return true;
+        if (!TryGetDailyChestLastOpenUtc(out DateTime lastTime))
+            return true;
 
-        string lastTimeStr = PlayerPrefs.GetString(DAILY_CHEST_KEY);
-        DateTime lastTime = DateTime.FromBinary(Convert.ToInt64(lastTimeStr));
         return (DateTime.UtcNow - lastTime).TotalHours >= 12;
     }
 
     public TimeSpan GetTimeUntilDailyChest()
     {
-        if (!PlayerPrefs.HasKey(DAILY_CHEST_KEY)) return TimeSpan.Zero;
+        if (!TryGetDailyChestLastOpenUtc(out DateTime lastTime))
+            return TimeSpan.Zero;
 
-        string lastTimeStr = PlayerPrefs.GetString(DAILY_CHEST_KEY);
-        DateTime lastTime = DateTime.FromBinary(Convert.ToInt64(lastTimeStr));
         TimeSpan elapsed = DateTime.UtcNow - lastTime;
         TimeSpan wait = TimeSpan.FromHours(12) - elapsed;
         return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
@@ -93,6 +91,7 @@ public class CrateManager : MonoBehaviour
             }
 
             PlayerPrefs.SetString(DAILY_CHEST_KEY, DateTime.UtcNow.ToBinary().ToString());
+            SaveCoordinator.MarkDirty();
 
             object dailyReward = crate.RollDrop();
             if (dailyReward != null)
@@ -198,7 +197,7 @@ public class CrateManager : MonoBehaviour
     private void SaveUnlockedCrops()
     {
         PlayerPrefs.SetString(UNLOCKED_CROPS_KEY, string.Join("|", _unlockedCropNames));
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void LoadUnlockedCrops()
@@ -216,6 +215,31 @@ public class CrateManager : MonoBehaviour
             {
                 _unlockedCropNames.Add(parts[i]);
             }
+        }
+    }
+
+    private bool TryGetDailyChestLastOpenUtc(out DateTime lastTime)
+    {
+        lastTime = DateTime.MinValue;
+
+        if (!PlayerPrefs.HasKey(DAILY_CHEST_KEY))
+            return false;
+
+        string raw = PlayerPrefs.GetString(DAILY_CHEST_KEY, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        if (!long.TryParse(raw, out long ticks))
+            return false;
+
+        try
+        {
+            lastTime = DateTime.FromBinary(ticks);
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

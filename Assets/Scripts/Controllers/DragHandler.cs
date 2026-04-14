@@ -125,6 +125,11 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
                 this._slot.SetCrop(sourceSlot.CurrentCrop);
                 sourceSlot.ClearSlot();
                 draggedItem._dropHandled = true;
+
+                if (GridManager.Instance != null)
+                {
+                    GridManager.Instance.SaveGridState();
+                }
             }
             // Is target same crop? Merge!
             else if (this._slot.CurrentCrop != null && sourceSlot.CurrentCrop != null &&
@@ -169,6 +174,11 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
             nearest.SetCrop(_slot.CurrentCrop);
             _slot.ClearSlot();
             _dropHandled = true;
+
+            if (GridManager.Instance != null)
+            {
+                GridManager.Instance.SaveGridState();
+            }
         }
         else if (nearest.CurrentCrop != null && _slot.CurrentCrop != null &&
                  nearest.CurrentCrop.cropName == _slot.CurrentCrop.cropName &&
@@ -239,11 +249,15 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         // Attempt to unlock (spends coins automatically)
         if (SlotUnlockManager.Instance.TryUnlockSlot(x, y))
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log($"Slot ({x},{y}) acildi! Maliyet: {cost} coin");
+#endif
         }
         else
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             Debug.Log($"Slot ({x},{y}) acilamadi. Maliyet: {cost} coin. Yetersiz bakiye.");
+#endif
         }
     }
 

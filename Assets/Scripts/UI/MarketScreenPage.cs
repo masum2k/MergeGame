@@ -18,6 +18,7 @@ public class MarketScreenPage : MonoBehaviour
     private RectTransform _contentRoot;
     private TextMeshProUGUI _feedbackText;
     private float _feedbackTimer;
+    private float _stateRefreshTimer;
     private bool _built;
     private int _openMultiplier = 1;
 
@@ -47,6 +48,11 @@ public class MarketScreenPage : MonoBehaviour
         if (!_built || !gameObject.activeInHierarchy)
             return;
 
+        _stateRefreshTimer += Time.unscaledDeltaTime;
+        if (_stateRefreshTimer < 0.25f)
+            return;
+
+        _stateRefreshTimer = 0f;
         RefreshCardStates();
     }
 

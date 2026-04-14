@@ -589,7 +589,7 @@ public class FactoryManager : MonoBehaviour
         OfferSaveWrapper wrapper = new OfferSaveWrapper { offers = _offers };
         string json = JsonUtility.ToJson(wrapper);
         PlayerPrefs.SetString(OFFERS_SAVE_KEY, json);
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()

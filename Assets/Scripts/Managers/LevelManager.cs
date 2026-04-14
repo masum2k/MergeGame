@@ -62,7 +62,7 @@ public class LevelManager : MonoBehaviour
     {
         PlayerPrefs.SetInt("PlayerLevel", Level);
         PlayerPrefs.SetFloat("PlayerXP", CurrentXP);
-        PlayerPrefs.Save();
+        SaveCoordinator.MarkDirty();
     }
 
     private void Load()
