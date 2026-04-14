@@ -612,6 +612,11 @@ public class ScreenCarouselUI : MonoBehaviour
             CropCompendiumUI.Instance.Hide();
         }
 
+        if (_currentIndex != (int)ScreenId.Farm && FarmCropInfoUI.Instance != null)
+        {
+            FarmCropInfoUI.Instance.Hide();
+        }
+
         UpdateBottomNavigationVisuals();
     }
 

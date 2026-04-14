@@ -8,15 +8,32 @@ using UnityEngine;
 /// </summary>
 public class InventoryManager : MonoBehaviour
 {
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _instance = null;
+        _isShuttingDown = false;
+    }
+
     public static InventoryManager Instance
     {
         get
         {
+            if (_isShuttingDown)
+            {
+                return _instance;
+            }
+
             if (_instance == null)
             {
                 _instance = FindAnyObjectByType<InventoryManager>();
                 if (_instance == null)
                 {
+                    if (!Application.isPlaying)
+                    {
+                        return null;
+                    }
+
                     GameObject go = new GameObject("InventoryManager_Auto");
                     _instance = go.AddComponent<InventoryManager>();
                 }
@@ -25,6 +42,7 @@ public class InventoryManager : MonoBehaviour
         }
     }
     private static InventoryManager _instance;
+    private static bool _isShuttingDown;
 
     private const string INVENTORY_SAVE_KEY = "InventoryDataV1";
 
@@ -57,6 +75,8 @@ public class InventoryManager : MonoBehaviour
 
     private void Awake()
     {
+        _isShuttingDown = false;
+
         if (_instance == null)
         {
             _instance = this;
@@ -68,6 +88,20 @@ public class InventoryManager : MonoBehaviour
         {
             Destroy(gameObject);
             return;
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _isShuttingDown = true;
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _isShuttingDown = true;
+            _instance = null;
         }
     }
 

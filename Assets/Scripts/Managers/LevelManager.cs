@@ -3,6 +3,10 @@ using System;
 
 public class LevelManager : MonoBehaviour
 {
+    private const int LEVEL_UP_GEM_REWARD = 3;
+    private const float LEVEL_XP_BASE = 130f;
+    private const float LEVEL_XP_EXPONENT = 1.3f;
+
     public static LevelManager Instance { get; private set; }
 
     [Header("State")]
@@ -44,18 +48,18 @@ public class LevelManager : MonoBehaviour
     {
         CurrentXP -= XPForNextLevel;
         Level++;
-        XPForNextLevel = Mathf.Round(100f * Mathf.Pow(Level, 1.2f));
+        XPForNextLevel = Mathf.Round(LEVEL_XP_BASE * Mathf.Pow(Level, LEVEL_XP_EXPONENT));
 
-        // Reward: 10 Gems
+        // Reward is intentionally low to avoid fast gem inflation.
         if (CurrencyManager.Instance != null)
         {
-            CurrencyManager.Instance.AddGem(10);
+            CurrencyManager.Instance.AddGem(LEVEL_UP_GEM_REWARD);
         }
 
-        GameMessageManager.Instance?.PushMessage("Level " + Level + " oldu. +10 Gem.");
+        GameMessageManager.Instance?.PushMessage("Level " + Level + " oldu. +" + LEVEL_UP_GEM_REWARD + " Gem.");
 
         OnLevelUp?.Invoke(Level);
-        Debug.Log($"LEVEL UP! New Level: {Level}. Reward: 10 Gems.");
+        Debug.Log($"LEVEL UP! New Level: {Level}. Reward: {LEVEL_UP_GEM_REWARD} Gems.");
     }
 
     private void Save()
@@ -69,6 +73,6 @@ public class LevelManager : MonoBehaviour
     {
         Level = SecurePlayerPrefs.GetInt("PlayerLevel", 1);
         CurrentXP = SecurePlayerPrefs.GetFloat("PlayerXP", 0);
-        XPForNextLevel = Mathf.Round(100f * Mathf.Pow(Level, 1.2f));
+        XPForNextLevel = Mathf.Round(LEVEL_XP_BASE * Mathf.Pow(Level, LEVEL_XP_EXPONENT));
     }
 }

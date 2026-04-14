@@ -15,6 +15,9 @@ public class CropData : BaseItemData
     public CropData nextLevelCrop;
 
     [Header("Economy")]
+    [TextArea(2, 4)]
+    public string description;
+
     [Tooltip("Amount of coin this crop generates per production tick/cycle.")]
     public float coinPerTick;
 

@@ -115,10 +115,11 @@ public class GameContentGenerator : MonoBehaviour
             c.itemColor = Color.Lerp(tierColor, Color.white, localIndex * 0.16f);
             c.icon = _defaultSprite;
             c.tier = (CropTier)tierIndex;
+            c.description = BuildAutoDescription(c.itemName, tierIndex, localIndex);
 
-            float tierBase = 1.6f * Mathf.Pow(1.85f, tierIndex);
-            float localFactor = 1f + (localIndex * 0.32f);
-            c.coinPerTick = Mathf.Round(tierBase * localFactor * 100f) / 100f;
+            float tierBase = 1.2f * Mathf.Pow(1.68f, tierIndex);
+            float localFactor = 1f + (localIndex * 0.22f);
+            c.coinPerTick = Mathf.Round((tierBase * localFactor * 0.1f) * 100f) / 100f;
 
             AllCrops.Add(c);
 
@@ -143,17 +144,7 @@ public class GameContentGenerator : MonoBehaviour
         incomeBoost.itemColor = Color.cyan;
         incomeBoost.icon = _defaultSprite;
 
-        BoostData mergeBoost = ScriptableObject.CreateInstance<BoostData>();
-        mergeBoost.itemName = "Merge XP Serum";
-        mergeBoost.description = "90 saniye boyunca merge XP kazancini arttirir.";
-        mergeBoost.type = BoostType.MergeXPBoost;
-        mergeBoost.multiplier = 2.5f;
-        mergeBoost.durationSeconds = 90f;
-        mergeBoost.itemColor = new Color(1f, 0.72f, 0.32f);
-        mergeBoost.icon = _defaultSprite;
-
         AllBoosts.Add(incomeBoost);
-        AllBoosts.Add(mergeBoost);
 
         // 3. Generate Chests
         if (CrateManager.Instance != null)
@@ -161,13 +152,13 @@ public class GameContentGenerator : MonoBehaviour
             CrateManager.Instance.AllCrates.Clear();
         }
 
-        CreateChestFromTierRange("Gunluk Sandik", 0, CurrencyType.Coin, CrateRarity.Daily, 0, 8, 12, false, incomeBoost, 12f);
-        CreateChestFromTierRange("Bronz Sandik", 25, CurrencyType.Coin, CrateRarity.Bronze, 0, 2, 12, false);
-        CreateChestFromTierRange("Gumus Sandik", 120, CurrencyType.Coin, CrateRarity.Silver, 2, 5, 12, false, incomeBoost, 6f);
-        CreateChestFromTierRange("Altin Sandik", 45, CurrencyType.Gem, CrateRarity.Gold, 4, 8, 12, true, incomeBoost, 8f);
-        CreateChestFromTierRange("Elmas Sandik", 160, CurrencyType.Gem, CrateRarity.Diamond, 7, 11, 12, true, incomeBoost, 10f);
-        CreateChestFromTierRange("Usta Sandik", 900, CurrencyType.Coin, CrateRarity.Gold, 6, 10, 14, true, mergeBoost, 8f);
-        CreateChestFromTierRange("Kozmik Sandik", 380, CurrencyType.Gem, CrateRarity.Diamond, 9, 11, 10, true, mergeBoost, 12f);
+        CreateChestFromTierRange("Gunluk Sandik", 0, CurrencyType.Coin, CrateRarity.Daily, 0, 7, 10, false, incomeBoost, 6f);
+        CreateChestFromTierRange("Bronz Sandik", 80, CurrencyType.Coin, CrateRarity.Bronze, 0, 2, 10, false);
+        CreateChestFromTierRange("Gumus Sandik", 300, CurrencyType.Coin, CrateRarity.Silver, 1, 4, 10, false, incomeBoost, 4f);
+        CreateChestFromTierRange("Altin Sandik", 110, CurrencyType.Gem, CrateRarity.Gold, 3, 7, 10, true, incomeBoost, 5f);
+        CreateChestFromTierRange("Elmas Sandik", 260, CurrencyType.Gem, CrateRarity.Diamond, 6, 10, 9, true, incomeBoost, 6f);
+        CreateChestFromTierRange("Usta Sandik", 1700, CurrencyType.Coin, CrateRarity.Gold, 5, 9, 11, true, incomeBoost, 5f);
+        CreateChestFromTierRange("Kozmik Sandik", 600, CurrencyType.Gem, CrateRarity.Diamond, 8, 11, 8, true, incomeBoost, 7f);
     }
 
     private void CreateChestFromTierRange(
@@ -287,5 +278,20 @@ public class GameContentGenerator : MonoBehaviour
         {
             CrateManager.Instance.AllCrates.Add(crate);
         }
+    }
+
+    private string BuildAutoDescription(string cropName, int tierIndex, int localIndex)
+    {
+        string[] tone =
+        {
+            "Baslangic seviyesinde stabil uretim saglar.",
+            "Dengeli bir orta hat urunudur.",
+            "Depoda tutuldugunda pasif akisi hissedilir sekilde arttirir.",
+            "Yuksek verim grubunda yer alir ve uzun oyunda deger kazanir."
+        };
+
+        int tierNo = tierIndex + 1;
+        string detail = tone[Mathf.Clamp(localIndex, 0, tone.Length - 1)];
+        return cropName + " T" + tierNo + " besinidir. " + detail;
     }
 }

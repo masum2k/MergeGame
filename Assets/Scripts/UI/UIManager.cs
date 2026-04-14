@@ -56,6 +56,11 @@ public class UIManager : MonoBehaviour
         // Hook up passive income feedback
         IncomeManager.OnIncomeCollected += HandleIncomeCollected;
 
+        if (IncomeManager.TryConsumePendingOfflinePopupIncome(out int pendingOfflineIncome))
+        {
+            HandleIncomeCollected(pendingOfflineIncome);
+        }
+
         // Ensure InventoryUI exists under Canvas
         EnsureUIComponent<InventoryUI>("InventoryUI_Auto");
 
@@ -70,6 +75,9 @@ public class UIManager : MonoBehaviour
 
         // Ensure crop compendium exists (triggered from farm page button)
         EnsureUIComponent<CropCompendiumUI>("CropCompendiumUI_Auto");
+
+        // Ensure farm crop detail panel exists (tap on slot with crop)
+        EnsureUIComponent<FarmCropInfoUI>("FarmCropInfoUI_Auto");
     }
 
     private void OnDestroy()

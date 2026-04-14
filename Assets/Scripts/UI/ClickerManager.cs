@@ -8,6 +8,8 @@ using UnityEngine.UI;
 /// </summary>
 public class ClickerManager : MonoBehaviour
 {
+    private const float ENERGY_REGEN_SECONDS = 14f;
+
     [Header("Settings")]
     public int clickReward = 1;
     public int maxEnergy = 10;
@@ -31,10 +33,10 @@ public class ClickerManager : MonoBehaviour
         if (currentEnergy < maxEnergy)
         {
             timer += Time.deltaTime;
-            if (timer >= 10f)
+            if (timer >= ENERGY_REGEN_SECONDS)
             {
                 currentEnergy++;
-                timer -= 10f;
+                timer -= ENERGY_REGEN_SECONDS;
                 OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
             }
         }

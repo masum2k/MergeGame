@@ -196,13 +196,13 @@ public class QuestManager : MonoBehaviour
         string todayKey = GetUtcDayKey(DateTime.UtcNow);
         string weekKey = GetUtcWeekKey(DateTime.UtcNow);
 
-        if (_dailyResetKey != todayKey || _dailyQuests.Count != DAILY_QUEST_COUNT)
+        if (_dailyResetKey != todayKey || _dailyQuests.Count != DAILY_QUEST_COUNT || HasObsoleteMergeQuest() || HasLegacyLevelCoinDailyQuest())
         {
             GenerateDailyQuests(todayKey);
             GameMessageManager.Instance?.PushMessage("Yeni gunluk gorevler hazir.");
         }
 
-        if (_weeklyResetKey != weekKey || _weeklyQuest == null)
+        if (_weeklyResetKey != weekKey || _weeklyQuest == null || (_weeklyQuest != null && _weeklyQuest.metric == ProgressMetricType.MergeCrop) || HasLegacyLevelCoinWeeklyQuest())
         {
             GenerateWeeklyQuest(weekKey);
             GameMessageManager.Instance?.PushMessage("Yeni haftalik mega gorev acildi.");
@@ -285,13 +285,12 @@ public class QuestManager : MonoBehaviour
     {
         return new List<QuestTemplate>
         {
-            new QuestTemplate { id = "merge", title = "Birlestirme Ustasi", description = "Belirli sayida merge yap.", metric = ProgressMetricType.MergeCrop, minTarget = 10, maxTarget = 20, rewardCoin = 1200, rewardGem = 6, rewardRp = 30 },
             new QuestTemplate { id = "crate", title = "Sandik Avcisi", description = "Sandik ac.", metric = ProgressMetricType.OpenCrate, minTarget = 4, maxTarget = 8, rewardCoin = 800, rewardGem = 8, rewardRp = 25 },
             new QuestTemplate { id = "factory", title = "Fabrika Vardiyasi", description = "Fabrika teklifi tamamla.", metric = ProgressMetricType.CompleteFactoryOffer, minTarget = 2, maxTarget = 5, rewardCoin = 1500, rewardGem = 7, rewardRp = 40 },
             new QuestTemplate { id = "earn_coin", title = "Kasayi Doldur", description = "Coin kazan.", metric = ProgressMetricType.EarnCoin, minTarget = 3000, maxTarget = 7000, rewardCoin = 2200, rewardGem = 10, rewardRp = 35 },
             new QuestTemplate { id = "research", title = "Arastirma Hamlesi", description = "Arastirma puani topla.", metric = ProgressMetricType.GainResearchPoint, minTarget = 70, maxTarget = 160, rewardCoin = 1000, rewardGem = 5, rewardRp = 45 },
             new QuestTemplate { id = "slot", title = "Alan Genislet", description = "Kilitli slot ac.", metric = ProgressMetricType.UnlockSlot, minTarget = 1, maxTarget = 3, rewardCoin = 900, rewardGem = 6, rewardRp = 30 },
-            new QuestTemplate { id = "level", title = "Seviye Atla", description = "Seviye atla.", metric = ProgressMetricType.GainLevel, minTarget = 1, maxTarget = 1, rewardCoin = 1400, rewardGem = 12, rewardRp = 35 }
+            new QuestTemplate { id = "level", title = "Seviye Atla", description = "Seviye atla.", metric = ProgressMetricType.GainLevel, minTarget = 1, maxTarget = 1, rewardCoin = 0, rewardGem = 5, rewardRp = 24 }
         };
     }
 
@@ -302,8 +301,36 @@ public class QuestManager : MonoBehaviour
             new QuestTemplate { id = "mega_coin", title = "Mega Gelir", description = "Hafta boyunca buyuk coin hedefine ulas.", metric = ProgressMetricType.EarnCoin, minTarget = 30000, maxTarget = 50000, rewardCoin = 10000, rewardGem = 55, rewardRp = 220 },
             new QuestTemplate { id = "mega_factory", title = "Mega Uretim", description = "Cok sayida fabrika teklifi tamamla.", metric = ProgressMetricType.CompleteFactoryOffer, minTarget = 12, maxTarget = 20, rewardCoin = 8000, rewardGem = 60, rewardRp = 240 },
             new QuestTemplate { id = "mega_crate", title = "Mega Sandik", description = "Yuksek sayida sandik ac.", metric = ProgressMetricType.OpenCrate, minTarget = 25, maxTarget = 40, rewardCoin = 7500, rewardGem = 65, rewardRp = 260 },
-            new QuestTemplate { id = "mega_merge", title = "Mega Birlestirme", description = "Merge zinciri olustur.", metric = ProgressMetricType.MergeCrop, minTarget = 80, maxTarget = 140, rewardCoin = 12000, rewardGem = 70, rewardRp = 250 }
+            new QuestTemplate { id = "mega_level", title = "Mega Gelisim", description = "Hafta boyunca birden fazla seviye atla.", metric = ProgressMetricType.GainLevel, minTarget = 4, maxTarget = 7, rewardCoin = 0, rewardGem = 24, rewardRp = 180 }
         };
+    }
+
+    private bool HasObsoleteMergeQuest()
+    {
+        for (int i = 0; i < _dailyQuests.Count; i++)
+        {
+            if (_dailyQuests[i] != null && _dailyQuests[i].metric == ProgressMetricType.MergeCrop)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasLegacyLevelCoinDailyQuest()
+    {
+        for (int i = 0; i < _dailyQuests.Count; i++)
+        {
+            QuestState q = _dailyQuests[i];
+            if (q != null && q.metric == ProgressMetricType.GainLevel && q.rewardCoin > 0)
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool HasLegacyLevelCoinWeeklyQuest()
+    {
+        return _weeklyQuest != null && _weeklyQuest.metric == ProgressMetricType.GainLevel && _weeklyQuest.rewardCoin > 0;
     }
 
     private void Save()

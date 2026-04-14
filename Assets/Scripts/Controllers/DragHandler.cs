@@ -131,25 +131,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
                     GridManager.Instance.SaveGridState();
                 }
             }
-            // Is target same crop? Merge!
-            else if (this._slot.CurrentCrop != null && sourceSlot.CurrentCrop != null &&
-                     this._slot.CurrentCrop.cropName == sourceSlot.CurrentCrop.cropName && 
-                     sourceSlot.CurrentCrop.nextLevelCrop != null)
-            {
-                // Cache info BEFORE clearing source slot
-                CropData resultCrop = sourceSlot.CurrentCrop.nextLevelCrop;
-                CropTier originalTier = sourceSlot.CurrentCrop.tier;
-
-                this._slot.SetCrop(resultCrop);
-                sourceSlot.ClearSlot();
-                draggedItem._dropHandled = true;
-
-                // Award XP using cached tier
-                AwardMergeXP(originalTier);
-                ProgressionSignals.Raise(ProgressMetricType.MergeCrop, 1);
-
-                GridManager.Instance.SaveGridState();
-            }
+            // Merge progression is intentionally disabled for economy pacing.
         }
     }
 
@@ -181,25 +163,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
                 GridManager.Instance.SaveGridState();
             }
         }
-        else if (nearest.CurrentCrop != null && _slot.CurrentCrop != null &&
-                 nearest.CurrentCrop.cropName == _slot.CurrentCrop.cropName &&
-                 _slot.CurrentCrop.nextLevelCrop != null)
-        {
-            // Cache logic for Snap-To-Merge as well
-            CropData resultCrop = _slot.CurrentCrop.nextLevelCrop;
-            CropTier originalTier = _slot.CurrentCrop.tier;
-
-            nearest.SetCrop(resultCrop);
-            
-            // Award XP before clearing
-            AwardMergeXP(originalTier);
-            ProgressionSignals.Raise(ProgressMetricType.MergeCrop, 1);
-
-            _slot.ClearSlot();
-            _dropHandled = true;
-
-            GridManager.Instance.SaveGridState();
-        }
+        // Merge progression is intentionally disabled for economy pacing.
         // If nearest slot has a different crop, just snap back to original position (do nothing)
     }
 
@@ -216,6 +180,11 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         // Locked slot click: attempt unlock
         if (_slot.IsLocked)
         {
+            if (FarmCropInfoUI.Instance != null)
+            {
+                FarmCropInfoUI.Instance.Hide();
+            }
+
             TryShowUnlockPrompt();
             return;
         }
@@ -227,6 +196,18 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
             {
                 InventoryUI.Instance.Show(_slot);
             }
+
+            if (FarmCropInfoUI.Instance != null)
+            {
+                FarmCropInfoUI.Instance.Hide();
+            }
+
+            return;
+        }
+
+        if (FarmCropInfoUI.Instance != null && _slot.CurrentCrop != null)
+        {
+            FarmCropInfoUI.Instance.Show(_slot);
         }
     }
 

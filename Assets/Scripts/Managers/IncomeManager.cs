@@ -5,11 +5,14 @@ using System.Collections;
 public class IncomeManager : MonoBehaviour
 {
     public static IncomeManager Instance { get; private set; }
+    private static int _pendingOfflinePopupIncome;
 
     private const string LAST_ACTIVE_UTC_TICKS_KEY = "IncomeLastActiveUtcTicks";
     private const string DECIMAL_CARRY_KEY = "IncomeDecimalCarry";
     private const float MAX_OFFLINE_SECONDS = 8f * 60f * 60f;
     private const float MIN_OFFLINE_SECONDS = 10f;
+    private const float ECONOMY_SPEED_MULTIPLIER = 0.7f;
+    private const float OFFLINE_INCOME_RATIO = 0.2f;
 
     [Header("Settings")]
     [Tooltip("How often in seconds the income is collected.")]
@@ -21,6 +24,13 @@ public class IncomeManager : MonoBehaviour
     // Event for UI to listen for income updates
     public static event Action<int> OnIncomeCollected;
 
+    public static bool TryConsumePendingOfflinePopupIncome(out int amount)
+    {
+        amount = Mathf.Max(0, _pendingOfflinePopupIncome);
+        _pendingOfflinePopupIncome = 0;
+        return amount > 0;
+    }
+
     private float _timer;
     // Buffer to hold decimal remainders between ticks so we don't lose value
     private float _uncollectedDecimals = 0f;
@@ -30,6 +40,9 @@ public class IncomeManager : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        // Reset runtime carry-over for fresh session start safety.
+        _pendingOfflinePopupIncome = 0;
 
         _uncollectedDecimals = Mathf.Clamp(SecurePlayerPrefs.GetFloat(DECIMAL_CARRY_KEY, 0f), 0f, 0.9999f);
     }
@@ -146,7 +159,8 @@ public class IncomeManager : MonoBehaviour
             return;
         }
 
-        float incomePerSecond = CalculateIncomePerSecond(includeBoostMultiplier: false);
+        // Offline income should be slower than active gameplay income.
+        float incomePerSecond = CalculateIncomePerSecond(includeBoostMultiplier: true) * OFFLINE_INCOME_RATIO;
         if (incomePerSecond <= 0f)
         {
             PersistRuntimeState(nowUtc);
@@ -162,7 +176,16 @@ public class IncomeManager : MonoBehaviour
         if (incomeAsInt > 0 && CurrencyManager.Instance != null)
         {
             CurrencyManager.Instance.AddCoin(incomeAsInt);
-            OnIncomeCollected?.Invoke(incomeAsInt);
+
+            if (OnIncomeCollected != null)
+            {
+                OnIncomeCollected.Invoke(incomeAsInt);
+                _pendingOfflinePopupIncome = 0;
+            }
+            else
+            {
+                _pendingOfflinePopupIncome += incomeAsInt;
+            }
 
             if (GameMessageManager.Instance != null)
             {
@@ -267,6 +290,8 @@ public class IncomeManager : MonoBehaviour
         {
             totalIncome *= BoostManager.Instance.CoinMultiplier;
         }
+
+        totalIncome *= ECONOMY_SPEED_MULTIPLIER;
 
         return Mathf.Max(0f, totalIncome);
     }
