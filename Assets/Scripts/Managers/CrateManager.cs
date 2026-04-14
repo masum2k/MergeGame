@@ -13,8 +13,12 @@ public class CrateManager : MonoBehaviour
     public List<CrateData> AllCrates = new List<CrateData>();
 
     public event Action<object> OnCrateOpened; // Passes either CropData or BoostData
+    public event Action OnUnlockedCropsChanged;
 
     private const string DAILY_CHEST_KEY = "LastDailyChestTime";
+    private const string UNLOCKED_CROPS_KEY = "UnlockedCrops";
+
+    private readonly HashSet<string> _unlockedCropNames = new HashSet<string>();
 
     private void Awake()
     {
@@ -22,11 +26,30 @@ public class CrateManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            LoadUnlockedCrops();
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    private void Start()
+    {
+        BootstrapUnlocksFromInventory();
+    }
+
+    public bool IsCropUnlocked(string cropName)
+    {
+        if (string.IsNullOrWhiteSpace(cropName))
+            return false;
+
+        return _unlockedCropNames.Contains(cropName);
+    }
+
+    public IReadOnlyCollection<string> GetUnlockedCropNames()
+    {
+        return _unlockedCropNames;
     }
 
     public bool IsDailyChestAvailable()
@@ -51,7 +74,14 @@ public class CrateManager : MonoBehaviour
 
     public object OpenCrate(CrateData crate)
     {
-        if (crate == null) return null;
+        List<object> rewards = OpenCrates(crate, 1);
+        return rewards.Count > 0 ? rewards[0] : null;
+    }
+
+    public List<object> OpenCrates(CrateData crate, int count, int overrideUnitCost = -1)
+    {
+        List<object> rewards = new List<object>();
+        if (crate == null || count <= 0) return rewards;
 
         // Special handling for Daily Chest
         if (crate.rarity == CrateRarity.Daily)
@@ -59,36 +89,61 @@ public class CrateManager : MonoBehaviour
             if (!IsDailyChestAvailable())
             {
                 Debug.LogWarning("Daily chest not ready yet!");
-                return null;
+                return rewards;
             }
+
             PlayerPrefs.SetString(DAILY_CHEST_KEY, DateTime.UtcNow.ToBinary().ToString());
+
+            object dailyReward = crate.RollDrop();
+            if (dailyReward != null)
+            {
+                GrantCrateReward(crate, dailyReward);
+                rewards.Add(dailyReward);
+            }
+
+            return rewards;
+        }
+
+        int safeCount = Mathf.Clamp(count, 1, 100);
+        int unitCost = overrideUnitCost > 0 ? overrideUnitCost : crate.cost;
+        long totalCostLong = (long)unitCost * safeCount;
+        if (totalCostLong > int.MaxValue)
+            return rewards;
+
+        int totalCost = (int)totalCostLong;
+
+        if (crate.currencyType == CurrencyType.Coin)
+        {
+            if (CurrencyManager.Instance == null || !CurrencyManager.Instance.SpendCoin(totalCost))
+                return rewards;
         }
         else
         {
-            // Currency Check
-            if (crate.currencyType == CurrencyType.Coin)
-            {
-                if (!CurrencyManager.Instance.SpendCoin(crate.cost)) return null;
-            }
-            else
-            {
-                if (!CurrencyManager.Instance.SpendGem(crate.cost)) return null;
-            }
+            if (CurrencyManager.Instance == null || !CurrencyManager.Instance.SpendGem(totalCost))
+                return rewards;
         }
 
-        // Roll Drop
-        object reward = crate.RollDrop();
-        if (reward == null) return null;
+        for (int i = 0; i < safeCount; i++)
+        {
+            object reward = crate.RollDrop();
+            if (reward == null) continue;
 
-        // Give Reward
+            GrantCrateReward(crate, reward);
+            rewards.Add(reward);
+        }
+
+        return rewards;
+    }
+
+    private void GrantCrateReward(CrateData crate, object reward)
+    {
         if (reward is CropData crop)
         {
             InventoryManager.Instance.AddItem(crop);
-            // XP Reward
+            MarkCropUnlocked(crop.itemName);
             if (LevelManager.Instance != null)
             {
-                // Basic XP for opening a chest
-                float baseXP = (crate.rarity == CrateRarity.Daily) ? 10 : (crate.cost * 0.5f);
+                float baseXP = (crate.rarity == CrateRarity.Daily) ? 10f : Mathf.Max(2f, crate.cost * 0.45f);
                 LevelManager.Instance.AddXP(baseXP);
             }
         }
@@ -99,6 +154,68 @@ public class CrateManager : MonoBehaviour
         }
 
         OnCrateOpened?.Invoke(reward);
-        return reward;
+    }
+
+    private void MarkCropUnlocked(string cropName)
+    {
+        if (string.IsNullOrWhiteSpace(cropName))
+            return;
+
+        if (_unlockedCropNames.Add(cropName))
+        {
+            SaveUnlockedCrops();
+            OnUnlockedCropsChanged?.Invoke();
+        }
+    }
+
+    private void BootstrapUnlocksFromInventory()
+    {
+        if (InventoryManager.Instance == null)
+            return;
+
+        List<CropData> ownedCrops = InventoryManager.Instance.GetItemsOfType<CropData>();
+        bool changed = false;
+
+        for (int i = 0; i < ownedCrops.Count; i++)
+        {
+            CropData crop = ownedCrops[i];
+            if (crop == null || string.IsNullOrWhiteSpace(crop.itemName))
+                continue;
+
+            if (_unlockedCropNames.Add(crop.itemName))
+            {
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            SaveUnlockedCrops();
+            OnUnlockedCropsChanged?.Invoke();
+        }
+    }
+
+    private void SaveUnlockedCrops()
+    {
+        PlayerPrefs.SetString(UNLOCKED_CROPS_KEY, string.Join("|", _unlockedCropNames));
+        PlayerPrefs.Save();
+    }
+
+    private void LoadUnlockedCrops()
+    {
+        _unlockedCropNames.Clear();
+
+        string raw = PlayerPrefs.GetString(UNLOCKED_CROPS_KEY, string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        string[] parts = raw.Split('|');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(parts[i]))
+            {
+                _unlockedCropNames.Add(parts[i]);
+            }
+        }
     }
 }

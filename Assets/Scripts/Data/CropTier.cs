@@ -4,5 +4,12 @@ public enum CropTier
     Uncommon,
     Rare,
     Epic,
-    Legendary
+    Legendary,
+    Mythic,
+    Ancient,
+    Divine,
+    Celestial,
+    Transcendent,
+    Eternal,
+    Primordial
 }

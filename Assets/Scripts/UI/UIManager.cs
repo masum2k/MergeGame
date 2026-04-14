@@ -17,6 +17,7 @@ public class UIManager : MonoBehaviour
     // Auto-created references
     private TextMeshProUGUI gemText;
     private TextMeshProUGUI levelText;
+    private TextMeshProUGUI screenTitleText;
     private Image xpBarFill;
     private GameObject topBar;
     private Button clickButtonRef;
@@ -55,11 +56,17 @@ public class UIManager : MonoBehaviour
         // Hook up passive income feedback
         IncomeManager.OnIncomeCollected += HandleIncomeCollected;
 
-        // Ensure MarketUI exists under Canvas
-        EnsureUIComponent<MarketUI>("MarketUI_Auto");
-
         // Ensure InventoryUI exists under Canvas
         EnsureUIComponent<InventoryUI>("InventoryUI_Auto");
+
+        // Ensure 4-screen carousel UI exists under Canvas
+        EnsureUIComponent<ScreenCarouselUI>("ScreenCarouselUI_Auto");
+
+        // Ensure right-side meta menu exists (hamburger button target)
+        EnsureUIComponent<MetaMenuUI>("MetaMenuUI_Auto");
+
+        // Ensure crop compendium exists (triggered from farm page button)
+        EnsureUIComponent<CropCompendiumUI>("CropCompendiumUI_Auto");
     }
 
     private void OnDestroy()
@@ -75,6 +82,8 @@ public class UIManager : MonoBehaviour
             LevelManager.Instance.OnXPChanged -= UpdateLevelUI;
             LevelManager.Instance.OnLevelUp -= HandleLevelUp;
         }
+
+        ClickerManager.OnEnergyChanged -= UpdateClickButtonEnergy;
         
         IncomeManager.OnIncomeCollected -= HandleIncomeCollected;
     }
@@ -195,21 +204,37 @@ public class UIManager : MonoBehaviour
         levelRt.anchoredPosition = new Vector2(400f, 0f);
         levelRt.sizeDelta = new Vector2(100f, 50f);
 
-        // --- Market Button (right side) ---
-        BuildTopBarButton(topBar.transform, "Market", new Color(0.2f, 0.7f, 0.3f),
-            new Vector2(-20f, 0f), () => {
-                MarketUI market = FindAnyObjectByType<MarketUI>();
-                if (market != null) market.OpenMarket();
-            });
+        // --- Screen Title (center) ---
+        GameObject titleObj = new GameObject("ScreenTitle_TopBar");
+        titleObj.transform.SetParent(topBar.transform, false);
+        screenTitleText = titleObj.AddComponent<TextMeshProUGUI>();
+        screenTitleText.text = "TARLA";
+        screenTitleText.fontSize = 24;
+        screenTitleText.fontStyle = FontStyles.Bold;
+        screenTitleText.color = new Color(0.9f, 0.95f, 1f);
+        screenTitleText.alignment = TextAlignmentOptions.Center;
 
-        // --- Inventory Button (left of Market) ---
+        RectTransform titleRt = titleObj.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0.5f, 0.5f);
+        titleRt.anchorMax = new Vector2(0.5f, 0.5f);
+        titleRt.pivot = new Vector2(0.5f, 0.5f);
+        titleRt.anchoredPosition = Vector2.zero;
+        titleRt.sizeDelta = new Vector2(320f, 50f);
+
+        // --- Inventory Button (right side, always visible) ---
         BuildTopBarButton(topBar.transform, "Envanter", new Color(0.2f, 0.4f, 0.85f),
-            new Vector2(-180f, 0f), () => {
+            new Vector2(-170f, 0f), () => {
                 if (InventoryUI.Instance != null) InventoryUI.Instance.Show(null);
             });
+
+        // --- Hamburger Menu Button (far right, always visible) ---
+        BuildTopBarButton(topBar.transform, "|||", new Color(0.32f, 0.36f, 0.42f),
+            new Vector2(-20f, 0f), () => {
+                if (MetaMenuUI.Instance != null) MetaMenuUI.Instance.Toggle();
+            }, 90f);
     }
 
-    private void BuildTopBarButton(Transform parent, string label, Color bgColor, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick)
+    private void BuildTopBarButton(Transform parent, string label, Color bgColor, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick, float labelRotationZ = 0f)
     {
         GameObject btnObj = new GameObject(label + "Button_TopBar");
         btnObj.transform.SetParent(parent, false);
@@ -234,7 +259,7 @@ public class UIManager : MonoBehaviour
         btnRt.anchorMax = new Vector2(1f, 0.5f);
         btnRt.pivot = new Vector2(1f, 0.5f);
         btnRt.anchoredPosition = anchoredPos;
-        btnRt.sizeDelta = new Vector2(145f, 50f);
+        btnRt.sizeDelta = new Vector2(130f, 50f);
 
         // Label
         GameObject labelObj = new GameObject("Label");
@@ -251,6 +276,7 @@ public class UIManager : MonoBehaviour
         labelRt.anchorMax = Vector2.one;
         labelRt.offsetMin = Vector2.zero;
         labelRt.offsetMax = Vector2.zero;
+        labelRt.localRotation = Quaternion.Euler(0f, 0f, labelRotationZ);
 
         btn.onClick.AddListener(onClick);
     }
@@ -296,7 +322,7 @@ public class UIManager : MonoBehaviour
         btnRt.anchorMin = new Vector2(0.5f, 0f);
         btnRt.anchorMax = new Vector2(0.5f, 0f);
         btnRt.pivot = new Vector2(0.5f, 0f);
-        btnRt.anchoredPosition = new Vector2(0f, 30f);
+        btnRt.anchoredPosition = new Vector2(0f, 120f);
         btnRt.sizeDelta = new Vector2(120f, 120f);
 
         // Button text (energy count)
@@ -467,6 +493,18 @@ public class UIManager : MonoBehaviour
         {
             gemText.text = gemValue.ToString();
         }
+    }
+
+    public void SetScreenTitle(string title)
+    {
+        if (screenTitleText == null) return;
+        screenTitleText.text = string.IsNullOrWhiteSpace(title) ? "TARLA" : title.ToUpperInvariant();
+    }
+
+    public void SetClickerVisible(bool isVisible)
+    {
+        if (clickButtonRef == null) return;
+        clickButtonRef.gameObject.SetActive(isVisible);
     }
 
     private void UpdateLevelUI(int level, float currentXP, float maxXP)

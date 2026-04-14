@@ -5,11 +5,15 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(BoxCollider2D))]
 public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler, IPointerClickHandler
 {
+    private static int _activeDragCount = 0;
+    public static bool IsAnyCropDragging => _activeDragCount > 0;
+
     private GridSlot _slot;
     private Transform _visualTransform;
     private BoxCollider2D _collider;
     private bool _isDragging = false;
     private bool _dropHandled = false;
+    private bool _registeredGlobalDrag = false;
 
     private void Awake()
     {
@@ -28,6 +32,7 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
         _isDragging = true;
         _dropHandled = false;
+        AcquireGlobalDragLock();
 
         // Disable collider so we don't raycast into ourselves while testing drop
         _collider.enabled = false;
@@ -53,7 +58,12 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (_visualTransform == null) return;
+        if (_visualTransform == null)
+        {
+            _isDragging = false;
+            ReleaseGlobalDragLock();
+            return;
+        }
 
         // Reset visual state
         _slot.SetDragSorting(false);
@@ -70,6 +80,30 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         _visualTransform.localPosition = Vector3.zero;
         _visualTransform = null;
         _isDragging = false;
+        ReleaseGlobalDragLock();
+    }
+
+    private void OnDisable()
+    {
+        ReleaseGlobalDragLock();
+    }
+
+    private void AcquireGlobalDragLock()
+    {
+        if (_registeredGlobalDrag)
+            return;
+
+        _registeredGlobalDrag = true;
+        _activeDragCount++;
+    }
+
+    private void ReleaseGlobalDragLock()
+    {
+        if (!_registeredGlobalDrag)
+            return;
+
+        _registeredGlobalDrag = false;
+        _activeDragCount = Mathf.Max(0, _activeDragCount - 1);
     }
 
     public void OnDrop(PointerEventData eventData)
@@ -217,15 +251,10 @@ public class DragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
     {
         if (LevelManager.Instance == null) return;
 
-        float xp = 10f; // T1 base
-        switch (tier)
-        {
-            case CropTier.Common: xp = 10; break;
-            case CropTier.Uncommon: xp = 25; break;
-            case CropTier.Rare: xp = 60; break;
-            case CropTier.Epic: xp = 150; break;
-            case CropTier.Legendary: xp = 400; break;
-        }
+        // Scales automatically with any future tier count expansion.
+        int tierIndex = Mathf.Max(0, (int)tier);
+        float xp = 10f * Mathf.Pow(1.72f, tierIndex);
+        xp = Mathf.Clamp(xp, 10f, 50000f);
 
         LevelManager.Instance.AddXP(xp);
     }

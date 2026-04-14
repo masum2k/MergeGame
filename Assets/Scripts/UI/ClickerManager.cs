@@ -53,7 +53,13 @@ public class ClickerManager : MonoBehaviour
         {
             if (CurrencyManager.Instance != null)
             {
-                CurrencyManager.Instance.AddCoin(clickReward);
+                int finalReward = clickReward;
+                if (ResearchManager.Instance != null)
+                {
+                    finalReward += ResearchManager.Instance.GetClickRewardBonus();
+                }
+
+                CurrencyManager.Instance.AddCoin(Mathf.Max(1, finalReward));
             }
             
             currentEnergy--;

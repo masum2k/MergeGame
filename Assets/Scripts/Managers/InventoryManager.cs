@@ -107,6 +107,32 @@ public class InventoryManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Removes a specific amount of an item by name.
+    /// Returns true if enough stock existed and removal succeeded.
+    /// </summary>
+    public bool TryRemoveItemByName(string itemName, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(itemName) || amount <= 0)
+            return false;
+
+        if (!_items.ContainsKey(itemName))
+            return false;
+
+        InventoryEntry entry = _items[itemName];
+        if (entry.count < amount)
+            return false;
+
+        entry.count -= amount;
+        if (entry.count <= 0)
+        {
+            _items.Remove(itemName);
+        }
+
+        OnInventoryChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>
     /// Returns all unique items currently in the inventory (count > 0).
     /// </summary>
     public List<BaseItemData> GetAllOwnedItems()

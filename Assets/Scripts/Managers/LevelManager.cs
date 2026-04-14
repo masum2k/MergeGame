@@ -52,6 +52,8 @@ public class LevelManager : MonoBehaviour
             CurrencyManager.Instance.AddGem(10);
         }
 
+        GameMessageManager.Instance?.PushMessage("Level " + Level + " oldu. +10 Gem.");
+
         OnLevelUp?.Invoke(Level);
         Debug.Log($"LEVEL UP! New Level: {Level}. Reward: 10 Gems.");
     }

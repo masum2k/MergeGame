@@ -19,11 +19,16 @@ public class GameAutoSetup : MonoBehaviour
         // =============================================
         //  STEP 1: Ensure Singletons
         // =============================================
+        EnsureSingleton<CurrencyManager>("CurrencyManager");
         EnsureSingleton<InventoryManager>("InventoryManager");
         EnsureSingleton<CrateManager>("CrateManager");
         EnsureSingleton<LevelManager>("LevelManager");
         EnsureSingleton<BoostManager>("BoostManager");
         EnsureSingleton<GameContentGenerator>("GameContentGenerator");
+        EnsureSingleton<ResearchManager>("ResearchManager");
+        EnsureSingleton<FactoryManager>("FactoryManager");
+        EnsureSingleton<GameMessageManager>("GameMessageManager");
+        EnsureSingleton<PrestigeManager>("PrestigeManager");
 
         // SlotUnlockManager must exist BEFORE GridManager.Start() runs
         SlotUnlockManager unlockMgr = EnsureSingleton<SlotUnlockManager>("SlotUnlockManager");
@@ -67,8 +72,8 @@ public class GameAutoSetup : MonoBehaviour
         Camera cam = Camera.main;
         if (cam != null)
         {
-            // Slightly smaller ortho size so the farm feels large
-            cam.orthographicSize = 4f;
+            // Static, zoomed-out overview for farm screen (no in-farm camera panning).
+            cam.orthographicSize = 8f;
 
             // Add CameraController if not already present
             CameraController cc = cam.GetComponent<CameraController>();
@@ -81,28 +86,11 @@ public class GameAutoSetup : MonoBehaviour
             // Set full grid bounds for the camera controller
             cc.SetBounds(-halfW, halfW, -halfH, halfH);
 
-            // Position camera to show the center of the unlocked patch
-            float unlockedCenterX = (unlockStartCol + unlockCols  * 0.5f - columns * 0.5f) * spacing;
-            float unlockedCenterY = (unlockStartRow + unlockRows  * 0.5f - rows    * 0.5f) * spacing;
+            // Keep camera centered for a stable board overview.
+            cam.transform.position = new Vector3(0f, 0f, cam.transform.position.z);
 
-            float orthoH = cam.orthographicSize;
-            float orthoW = orthoH * cam.aspect;
-
-            // Clamp to within bounds
-            float minX = -halfW + orthoW;
-            float maxX =  halfW - orthoW;
-            float minY = -halfH + orthoH;
-            float maxY =  halfH - orthoH;
-
-            if (minX > maxX) minX = maxX = 0f;
-            if (minY > maxY) minY = maxY = 0f;
-
-            Vector3 startPos = new Vector3(
-                Mathf.Clamp(unlockedCenterX, minX, maxX),
-                Mathf.Clamp(unlockedCenterY, minY, maxY),
-                cam.transform.position.z
-            );
-            cam.transform.position = startPos;
+            // Disable in-farm pan/zoom so horizontal swipes always change screens.
+            cc.enabled = false;
         }
     }
 

@@ -3,6 +3,10 @@ using UnityEngine;
 
 public class CurrencyManager : MonoBehaviour
 {
+    private const string COIN_KEY = "PlayerCoin";
+    private const string GEM_KEY = "PlayerGem";
+    private const string LIFETIME_COIN_KEY = "PlayerLifetimeCoin";
+
     // Singleton instance
     public static CurrencyManager Instance { get; private set; }
 
@@ -11,6 +15,9 @@ public class CurrencyManager : MonoBehaviour
 
     // Current gem amount
     public int Gem { get; private set; }
+
+    // Lifetime total earned coin (used for prestige requirements)
+    public int LifetimeCoinEarned { get; private set; }
 
     // Event triggered when coin amount changes
     public event Action<int> OnCoinChanged;
@@ -36,7 +43,7 @@ public class CurrencyManager : MonoBehaviour
 
     private void Start()
     {
-        if (!PlayerPrefs.HasKey("PlayerCoin"))
+        if (!PlayerPrefs.HasKey(COIN_KEY))
         {
             // Give starting values only for first run
             Debug.Log("<color=cyan>[CurrencyManager] First run detected! Giving starter 100 Coins and 10 Gems.</color>");
@@ -47,15 +54,19 @@ public class CurrencyManager : MonoBehaviour
 
     private void Save()
     {
-        PlayerPrefs.SetInt("PlayerCoin", Coin);
-        PlayerPrefs.SetInt("PlayerGem", Gem);
+        PlayerPrefs.SetInt(COIN_KEY, Coin);
+        PlayerPrefs.SetInt(GEM_KEY, Gem);
+        PlayerPrefs.SetInt(LIFETIME_COIN_KEY, LifetimeCoinEarned);
         PlayerPrefs.Save();
     }
 
     private void Load()
     {
-        Coin = PlayerPrefs.GetInt("PlayerCoin", 0);
-        Gem = PlayerPrefs.GetInt("PlayerGem", 0);
+        Coin = PlayerPrefs.GetInt(COIN_KEY, 0);
+        Gem = PlayerPrefs.GetInt(GEM_KEY, 0);
+        LifetimeCoinEarned = PlayerPrefs.GetInt(LIFETIME_COIN_KEY, 0);
+
+        ApplyCoinCap();
         
         OnCoinChanged?.Invoke(Coin);
         OnGemChanged?.Invoke(Gem);
@@ -67,9 +78,16 @@ public class CurrencyManager : MonoBehaviour
     /// <param name="amount">Amount to add</param>
     public void AddCoin(int amount)
     {
-        if (amount < 0) return;
+        if (amount <= 0) return;
 
-        Coin += amount;
+        long life = (long)LifetimeCoinEarned + amount;
+        LifetimeCoinEarned = life >= int.MaxValue ? int.MaxValue : (int)life;
+
+        int cap = GetCurrentCoinCap();
+        long rawCoin = (long)Coin + amount;
+        int clamped = (int)Mathf.Min(cap, rawCoin >= int.MaxValue ? int.MaxValue : (int)rawCoin);
+
+        Coin = clamped;
         OnCoinChanged?.Invoke(Coin);
         Save();
     }
@@ -125,5 +143,22 @@ public class CurrencyManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    public int GetCurrentCoinCap()
+    {
+        if (PrestigeManager.Instance == null)
+            return int.MaxValue;
+
+        return PrestigeManager.Instance.GetCoinCap();
+    }
+
+    public void ApplyCoinCap()
+    {
+        int cap = GetCurrentCoinCap();
+        if (Coin > cap)
+        {
+            Coin = cap;
+        }
     }
 }

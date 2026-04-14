@@ -50,7 +50,19 @@ public class IncomeManager : MonoBehaviour
             if (slot != null && !slot.IsEmpty && slot.CurrentCrop != null)
             {
                 // In our math: coinPerTick is interpreted as "income per second"
-                totalIncome += slot.CurrentCrop.coinPerTick;
+                float slotIncome = slot.CurrentCrop.coinPerTick;
+
+                if (ResearchManager.Instance != null)
+                {
+                    slotIncome *= ResearchManager.Instance.GetCropIncomeMultiplier(slot.CurrentCrop);
+                }
+
+                if (PrestigeManager.Instance != null)
+                {
+                    slotIncome *= PrestigeManager.Instance.GetIncomeMultiplier();
+                }
+
+                totalIncome += slotIncome;
             }
         }
 
