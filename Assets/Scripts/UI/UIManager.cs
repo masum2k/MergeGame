@@ -257,18 +257,43 @@ public class UIManager : MonoBehaviour
         GameObject xpBarBg = new GameObject("XPBar_Bg");
         xpBarBg.transform.SetParent(topBar.transform, false);
         Image xpBgImg = xpBarBg.AddComponent<Image>();
-        xpBgImg.color = new Color(0.1f, 0.1f, 0.15f, 1f);
+        Sprite framedXpBarShape = useFramedTopBar ? CreateFramedXpBarShapeSprite() : null;
+        xpBgImg.color = useFramedTopBar
+            ? new Color(0.03f, 0.05f, 0.11f, 0.9f)
+            : new Color(0.1f, 0.1f, 0.15f, 1f);
+        if (framedXpBarShape != null)
+        {
+            xpBgImg.sprite = framedXpBarShape;
+            xpBgImg.type = Image.Type.Sliced;
+        }
         RectTransform xpBgRt = xpBarBg.GetComponent<RectTransform>();
-        xpBgRt.anchorMin = new Vector2(0f, 0f);
-        xpBgRt.anchorMax = new Vector2(1f, 0f);
-        xpBgRt.pivot = new Vector2(0.5f, 0f);
-        xpBgRt.anchoredPosition = Vector2.zero;
-        xpBgRt.sizeDelta = new Vector2(0f, 8f);
+        if (useFramedTopBar)
+        {
+            // Keep level progression in the carved strip of the LVL panel.
+            xpBgRt.anchorMin = new Vector2(0.021f, 0f);
+            xpBgRt.anchorMax = new Vector2(0.483f, 0f);
+            xpBgRt.pivot = new Vector2(0.5f, 0f);
+            xpBgRt.anchoredPosition = new Vector2(0f, 9f);
+            xpBgRt.sizeDelta = new Vector2(0f, 7f);
+        }
+        else
+        {
+            xpBgRt.anchorMin = new Vector2(0f, 0f);
+            xpBgRt.anchorMax = new Vector2(1f, 0f);
+            xpBgRt.pivot = new Vector2(0.5f, 0f);
+            xpBgRt.anchoredPosition = Vector2.zero;
+            xpBgRt.sizeDelta = new Vector2(0f, 8f);
+        }
 
         GameObject xpBarFillObj = new GameObject("XPBar_Fill");
         xpBarFillObj.transform.SetParent(xpBarBg.transform, false);
         xpBarFill = xpBarFillObj.AddComponent<Image>();
         xpBarFill.color = new Color(0.2f, 0.6f, 1f);
+        if (framedXpBarShape != null)
+        {
+            xpBarFill.sprite = framedXpBarShape;
+            xpBarFill.type = Image.Type.Sliced;
+        }
         RectTransform xpFillRt = xpBarFillObj.GetComponent<RectTransform>();
         xpFillRt.anchorMin = new Vector2(0f, 0f);
         xpFillRt.anchorMax = new Vector2(0f, 1f); // Width controlled by code
@@ -643,6 +668,43 @@ public class UIManager : MonoBehaviour
 
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private Sprite CreateFramedXpBarShapeSprite()
+    {
+        const int width = 128;
+        const int height = 16;
+        const int leftSlope = 14;
+        const int rightSlope = 14;
+
+        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode = TextureWrapMode.Clamp;
+
+        float maxY = Mathf.Max(1f, height - 1f);
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                float t = y / maxY;
+                float leftBoundary = Mathf.Lerp(leftSlope, 0f, t);
+                float rightBoundary = Mathf.Lerp(width - rightSlope - 1f, width - 1f, t);
+                bool inside = x >= leftBoundary && x <= rightBoundary;
+                tex.SetPixel(x, y, inside ? Color.white : Color.clear);
+            }
+        }
+
+        tex.Apply();
+
+        Vector4 border = new Vector4(leftSlope, 0f, rightSlope, 0f);
+        return Sprite.Create(
+            tex,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
     }
 
     // =============================================
