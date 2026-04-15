@@ -40,9 +40,24 @@ public class ScreenCarouselUI : MonoBehaviour
     private bool _clickButtonAttached;
     private RectTransform _bottomNavRoot;
     private readonly Image[] _bottomNavButtonBackgrounds = new Image[4];
+    private readonly TMPro.TextMeshProUGUI[] _bottomNavButtonLabels = new TMPro.TextMeshProUGUI[4];
+    private Sprite _bottomNavMenuSprite;
 
     private readonly Color _bottomNavActiveColor = new Color(0.24f, 0.56f, 0.96f, 1f);
     private readonly Color _bottomNavIdleColor = new Color(0.22f, 0.24f, 0.32f, 0.94f);
+    private readonly Color _bottomNavLabelActiveColor = Color.white;
+    private readonly Color _bottomNavLabelIdleColor = new Color(1f, 1f, 1f, 0.94f);
+    private const string BottomNavMenuResourcePath = "BottomNav/ALTMENU-Full-Cropped";
+    private const float BottomNavHeight = 244f;
+    private const float BottomNavEdgePadding = 36f;
+    private const float BottomNavSlotGap = 12f;
+    private const float BottomNavSlotVerticalPadding = 16f;
+    private const float BottomNavLabelFontSize = 25f;
+    private const float BottomNavLabelFontSizeMin = 15f;
+    private const float BottomNavLabelOutlineWidth = 0.14f;
+    private const float BottomNavLabelBottomOffset = -2f;
+    private const float BottomNavLabelHeight = 54f;
+    private const float BottomNavLabelEdgeNudge = 10f;
 
     private void Start()
     {
@@ -53,6 +68,7 @@ public class ScreenCarouselUI : MonoBehaviour
         _uiManager = FindAnyObjectByType<UIManager>();
         _mainCamera = Camera.main;
         CacheCameraBaseIfNeeded();
+        LoadBottomNavIcons();
 
         BuildRoot(canvas.transform);
         BuildBottomNavigation(canvas.transform);
@@ -144,10 +160,19 @@ public class ScreenCarouselUI : MonoBehaviour
         _bottomNavRoot.anchorMax = new Vector2(1f, 0f);
         _bottomNavRoot.pivot = new Vector2(0.5f, 0f);
         _bottomNavRoot.anchoredPosition = Vector2.zero;
-        _bottomNavRoot.sizeDelta = new Vector2(0f, 82f);
+        _bottomNavRoot.sizeDelta = new Vector2(0f, BottomNavHeight);
 
         Image navBg = navObj.AddComponent<Image>();
-        navBg.color = new Color(0.06f, 0.07f, 0.11f, 0.96f);
+        if (_bottomNavMenuSprite != null)
+        {
+            navBg.sprite = _bottomNavMenuSprite;
+            navBg.type = Image.Type.Simple;
+            navBg.color = Color.white;
+        }
+        else
+        {
+            navBg.color = new Color(0.05f, 0.06f, 0.1f, 0.98f);
+        }
 
         // Keep pane above page content but below pop-up overlays.
         _bottomNavRoot.SetSiblingIndex(1);
@@ -158,15 +183,8 @@ public class ScreenCarouselUI : MonoBehaviour
         RectTransform rowRt = rowObj.GetComponent<RectTransform>();
         rowRt.anchorMin = new Vector2(0f, 0f);
         rowRt.anchorMax = new Vector2(1f, 1f);
-        rowRt.offsetMin = new Vector2(8f, 8f);
-        rowRt.offsetMax = new Vector2(-8f, -8f);
-
-        HorizontalLayoutGroup hlg = rowObj.AddComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 8f;
-        hlg.childControlWidth = true;
-        hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = true;
-        hlg.childForceExpandHeight = true;
+        rowRt.offsetMin = new Vector2(0f, 0f);
+        rowRt.offsetMax = new Vector2(0f, 0f);
 
         CreateBottomNavButton(rowObj.transform, "Market", (int)ScreenId.Market);
         CreateBottomNavButton(rowObj.transform, "Tarla", (int)ScreenId.Farm);
@@ -176,34 +194,90 @@ public class ScreenCarouselUI : MonoBehaviour
         UpdateBottomNavigationVisuals();
     }
 
+    private void LoadBottomNavIcons()
+    {
+        _bottomNavMenuSprite = Resources.Load<Sprite>(BottomNavMenuResourcePath);
+        if (_bottomNavMenuSprite == null)
+        {
+            Texture2D menuTexture = Resources.Load<Texture2D>(BottomNavMenuResourcePath);
+            if (menuTexture != null)
+            {
+                _bottomNavMenuSprite = Sprite.Create(
+                    menuTexture,
+                    new Rect(0f, 0f, menuTexture.width, menuTexture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+        }
+    }
+
     private void CreateBottomNavButton(Transform parent, string label, int targetIndex)
     {
         GameObject btnObj = new GameObject("Nav_" + label, typeof(RectTransform));
         btnObj.transform.SetParent(parent, false);
 
+        RectTransform btnRt = btnObj.GetComponent<RectTransform>();
+        float minX = targetIndex / 4f;
+        float maxX = (targetIndex + 1) / 4f;
+        btnRt.anchorMin = new Vector2(minX, 0f);
+        btnRt.anchorMax = new Vector2(maxX, 1f);
+        btnRt.pivot = new Vector2(0.5f, 0.5f);
+        float halfGap = BottomNavSlotGap * 0.5f;
+        float leftPad = targetIndex == 0 ? BottomNavEdgePadding : halfGap;
+        float rightPad = targetIndex == 3 ? BottomNavEdgePadding : halfGap;
+        btnRt.offsetMin = new Vector2(leftPad, BottomNavSlotVerticalPadding);
+        btnRt.offsetMax = new Vector2(-rightPad, -BottomNavSlotVerticalPadding);
+
         Image bg = btnObj.AddComponent<Image>();
-        bg.color = _bottomNavIdleColor;
+        bg.color = _bottomNavMenuSprite != null ? Color.clear : _bottomNavIdleColor;
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = bg;
         btn.onClick.AddListener(() => OnBottomNavPressed(targetIndex));
 
-        GameObject txtObj = new GameObject("Text", typeof(RectTransform));
-        txtObj.transform.SetParent(btnObj.transform, false);
-        TMPro.TextMeshProUGUI txt = txtObj.AddComponent<TMPro.TextMeshProUGUI>();
-        txt.text = label;
-        txt.fontSize = 19;
-        txt.fontStyle = TMPro.FontStyles.Bold;
-        txt.alignment = TMPro.TextAlignmentOptions.Center;
-        txt.color = new Color(0.9f, 0.94f, 1f);
+        GameObject labelObj = new GameObject("Label", typeof(RectTransform));
+        labelObj.transform.SetParent(btnObj.transform, false);
 
-        RectTransform txtRt = txtObj.GetComponent<RectTransform>();
-        txtRt.anchorMin = Vector2.zero;
-        txtRt.anchorMax = Vector2.one;
-        txtRt.offsetMin = Vector2.zero;
-        txtRt.offsetMax = Vector2.zero;
+        TMPro.TextMeshProUGUI labelText = labelObj.AddComponent<TMPro.TextMeshProUGUI>();
+        labelText.text = label;
+        labelText.fontSize = BottomNavLabelFontSize;
+        labelText.enableAutoSizing = true;
+        labelText.fontSizeMin = BottomNavLabelFontSizeMin;
+        labelText.fontSizeMax = BottomNavLabelFontSize;
+        labelText.fontStyle = TMPro.FontStyles.Bold;
+        labelText.alignment = TMPro.TextAlignmentOptions.Center;
+        labelText.enableWordWrapping = false;
+        labelText.raycastTarget = false;
+        labelText.color = _bottomNavLabelIdleColor;
+
+        // Use a material instance so outline changes stay local to this label.
+        if (labelText.fontSharedMaterial != null)
+        {
+            labelText.fontMaterial = new Material(labelText.fontSharedMaterial);
+        }
+
+        labelText.outlineColor = Color.black;
+        labelText.outlineWidth = BottomNavLabelOutlineWidth;
+
+        RectTransform labelRt = labelObj.GetComponent<RectTransform>();
+        labelRt.anchorMin = new Vector2(0f, 0f);
+        labelRt.anchorMax = new Vector2(1f, 0f);
+        labelRt.pivot = new Vector2(0.5f, 0f);
+        float labelOffsetX = 0f;
+        if (targetIndex == (int)ScreenId.Market)
+        {
+            labelOffsetX = -BottomNavLabelEdgeNudge;
+        }
+        else if (targetIndex == (int)ScreenId.SkillTree)
+        {
+            labelOffsetX = BottomNavLabelEdgeNudge;
+        }
+
+        labelRt.anchoredPosition = new Vector2(labelOffsetX, BottomNavLabelBottomOffset);
+        labelRt.sizeDelta = new Vector2(0f, BottomNavLabelHeight);
 
         _bottomNavButtonBackgrounds[targetIndex] = bg;
+        _bottomNavButtonLabels[targetIndex] = labelText;
     }
 
     private void OnBottomNavPressed(int targetIndex)
@@ -239,7 +313,21 @@ public class ScreenCarouselUI : MonoBehaviour
             if (bg == null)
                 continue;
 
-            bg.color = i == _currentIndex ? _bottomNavActiveColor : _bottomNavIdleColor;
+            bool isActive = i == _currentIndex;
+            if (_bottomNavMenuSprite != null)
+            {
+                bg.color = Color.clear;
+            }
+            else
+            {
+                bg.color = isActive ? _bottomNavActiveColor : _bottomNavIdleColor;
+            }
+
+            TMPro.TextMeshProUGUI label = _bottomNavButtonLabels[i];
+            if (label != null)
+            {
+                label.color = isActive ? _bottomNavLabelActiveColor : _bottomNavLabelIdleColor;
+            }
         }
     }
 
@@ -325,7 +413,7 @@ public class ScreenCarouselUI : MonoBehaviour
         swipeRt.anchorMin = new Vector2(0f, 0f);
         swipeRt.anchorMax = new Vector2(1f, 0f);
         swipeRt.pivot = new Vector2(0.5f, 0f);
-        swipeRt.anchoredPosition = new Vector2(0f, 96f);
+        swipeRt.anchoredPosition = new Vector2(0f, 258f);
         swipeRt.sizeDelta = new Vector2(0f, 30f);
 
         GameObject cropListBtnObj = new GameObject("AllCropsButton", typeof(RectTransform));
@@ -346,7 +434,7 @@ public class ScreenCarouselUI : MonoBehaviour
         cropListBtnRt.anchorMin = new Vector2(0f, 0f);
         cropListBtnRt.anchorMax = new Vector2(0f, 0f);
         cropListBtnRt.pivot = new Vector2(0f, 0f);
-        cropListBtnRt.anchoredPosition = new Vector2(20f, 118f);
+        cropListBtnRt.anchoredPosition = new Vector2(20f, 282f);
         cropListBtnRt.sizeDelta = new Vector2(170f, 56f);
 
         GameObject cropListBtnTextObj = new GameObject("Text", typeof(RectTransform));
@@ -727,7 +815,7 @@ public class ScreenCarouselUI : MonoBehaviour
             buttonRt.anchorMin = new Vector2(0.5f, 0f);
             buttonRt.anchorMax = new Vector2(0.5f, 0f);
             buttonRt.pivot = new Vector2(0.5f, 0f);
-            buttonRt.anchoredPosition = new Vector2(0f, 120f);
+            buttonRt.anchoredPosition = new Vector2(0f, 284f);
         }
 
         _clickButtonAttached = true;

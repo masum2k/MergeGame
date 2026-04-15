@@ -19,6 +19,13 @@ public class SlotUnlockManager : MonoBehaviour
     // All unlocked slot coordinates
     private HashSet<Vector2Int> _unlockedSlots = new HashSet<Vector2Int>();
 
+    // Optional bounds for the maximum unlockable area.
+    private bool _hasUnlockLimits;
+    private int _minUnlockX = int.MinValue;
+    private int _maxUnlockX = int.MaxValue;
+    private int _minUnlockY = int.MinValue;
+    private int _maxUnlockY = int.MaxValue;
+
     // Center of the initial unlocked region (used for distance-based pricing)
     private Vector2 _unlockCenter;
 
@@ -92,7 +99,10 @@ public class SlotUnlockManager : MonoBehaviour
         {
             for (int y = startRow; y < startRow + unlockRows; y++)
             {
-                _unlockedSlots.Add(new Vector2Int(x, y));
+                if (IsWithinUnlockLimits(x, y))
+                {
+                    _unlockedSlots.Add(new Vector2Int(x, y));
+                }
             }
         }
 
@@ -103,6 +113,34 @@ public class SlotUnlockManager : MonoBehaviour
         );
 
         Save();
+    }
+
+    /// <summary>
+    /// Sets the maximum rectangular area where slots can be unlocked.
+    /// </summary>
+    public void SetUnlockLimits(int minX, int maxX, int minY, int maxY)
+    {
+        if (minX > maxX || minY > maxY)
+        {
+            _hasUnlockLimits = false;
+            return;
+        }
+
+        _minUnlockX = minX;
+        _maxUnlockX = maxX;
+        _minUnlockY = minY;
+        _maxUnlockY = maxY;
+        _hasUnlockLimits = true;
+    }
+
+    public bool IsWithinUnlockLimits(int x, int y)
+    {
+        if (!_hasUnlockLimits)
+        {
+            return true;
+        }
+
+        return x >= _minUnlockX && x <= _maxUnlockX && y >= _minUnlockY && y <= _maxUnlockY;
     }
 
     /// <summary>
@@ -145,6 +183,9 @@ public class SlotUnlockManager : MonoBehaviour
 
         // Already unlocked
         if (_unlockedSlots.Contains(coord)) return false;
+
+        // Respect global maximum unlockable area.
+        if (!IsWithinUnlockLimits(x, y)) return false;
 
         // Must be adjacent to an unlocked slot
         if (!IsAdjacentToUnlocked(x, y)) return false;

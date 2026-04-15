@@ -170,9 +170,9 @@ public class MarketUI : MonoBehaviour
         if (CrateManager.Instance == null) return;
 
         // Group chests by rarity/type for better UI
-        AddChestSection("GÜNLÜK FIRSAT", CrateRarity.Daily);
+        AddChestSection("GUNLUK FIRSAT", CrateRarity.Daily);
         AddChestSection("STANDART SANDIKLAR", CrateRarity.Bronze, CrateRarity.Silver);
-        AddChestSection("ELİT SANDIKLAR", CrateRarity.Gold, CrateRarity.Diamond);
+        AddChestSection("ELIT SANDIKLAR", CrateRarity.Gold, CrateRarity.Diamond);
 
         // Force layout rebuild to ensure scroll area handles new children
         if (contentContainer != null)
@@ -250,7 +250,7 @@ public class MarketUI : MonoBehaviour
         GameObject btnTxtObj = new GameObject("Text");
         btnTxtObj.transform.SetParent(btnObj.transform, false);
         TextMeshProUGUI btnTxt = btnTxtObj.AddComponent<TextMeshProUGUI>();
-        btnTxt.text = (crate.rarity == CrateRarity.Daily) ? "AÇ" : crate.cost.ToString();
+        btnTxt.text = (crate.rarity == CrateRarity.Daily) ? "AC" : crate.cost.ToString();
         btnTxt.fontSize = 18; btnTxt.alignment = TextAlignmentOptions.Center; btnTxt.color = Color.black;
         btnTxt.fontStyle = FontStyles.Bold;
         btnTxtObj.GetComponent<RectTransform>().anchorMin = Vector2.zero; btnTxtObj.GetComponent<RectTransform>().anchorMax = Vector2.one;
@@ -298,7 +298,7 @@ public class MarketUI : MonoBehaviour
         if (reward is BaseItemData item)
         {
             dropNotificationText.color = Color.green;
-            dropNotificationText.text = $"[YENİ] {item.itemName} ÇIKTI!";
+            dropNotificationText.text = $"[YENI] {item.itemName} CIKTI!";
             notificationTimer = 3f;
         }
     }

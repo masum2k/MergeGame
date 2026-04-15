@@ -108,7 +108,7 @@ public class InventoryUI : MonoBehaviour
         filterBtnText = fTextObj.AddComponent<TextMeshProUGUI>();
         filterBtnText.fontSize = 14;
         filterBtnText.alignment = TextAlignmentOptions.Center;
-        filterBtnText.text = "Sırala: " + _currentSort.ToString();
+        filterBtnText.text = "Sirala: " + _currentSort.ToString();
         RectTransform ftRt = fTextObj.GetComponent<RectTransform>();
         ftRt.anchorMin = Vector2.zero; ftRt.anchorMax = Vector2.one; 
         ftRt.offsetMin = Vector2.zero; ftRt.offsetMax = Vector2.zero;
@@ -246,7 +246,7 @@ public class InventoryUI : MonoBehaviour
     private void CycleSortMode()
     {
         _currentSort = (SortMode)(((int)_currentSort + 1) % System.Enum.GetValues(typeof(SortMode)).Length);
-        if (filterBtnText != null) filterBtnText.text = "Sırala: " + _currentSort.ToString();
+        if (filterBtnText != null) filterBtnText.text = "Sirala: " + _currentSort.ToString();
         PopulateItems();
     }
 

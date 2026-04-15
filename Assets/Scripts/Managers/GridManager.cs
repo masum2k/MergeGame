@@ -14,6 +14,15 @@ public class GridManager : MonoBehaviour
 
     // 2D Array holding all slot references
     private GridSlot[,] _grid;
+    private bool _useThemedFarmBackground;
+
+    private static readonly Color SlotVisibleBorderColor = Color.black;
+    private static readonly Color SlotVisibleUnlockedColor = Color.white;
+    private static readonly Color SlotVisibleLockedColor = new Color(0.12f, 0.14f, 0.18f, 0.44f);
+
+    private static readonly Color SlotThemedBorderColor = new Color(0f, 0f, 0f, 0.12f);
+    private static readonly Color SlotThemedUnlockedColor = new Color(1f, 1f, 1f, 0.08f);
+    private static readonly Color SlotThemedLockedColor = new Color(0.08f, 0.1f, 0.14f, 0.2f);
 
     /// <summary>
     /// Singleton-like static reference for nearest-slot lookups from DragHandler.
@@ -27,6 +36,8 @@ public class GridManager : MonoBehaviour
 
     private void Start()
     {
+        _useThemedFarmBackground = Resources.Load<Texture2D>("Farm/ANAMENU-Background") != null;
+
         GenerateGrid();
 
         // Subscribe to unlock events to refresh visuals
@@ -124,19 +135,36 @@ public class GridManager : MonoBehaviour
     private void ApplySlotLockState(GridSlot slot, int x, int y)
     {
         bool isUnlocked = true;
+        bool isWithinVisibleFarmArea = true;
 
         if (SlotUnlockManager.Instance != null)
         {
             isUnlocked = SlotUnlockManager.Instance.IsUnlocked(x, y);
+            isWithinVisibleFarmArea = SlotUnlockManager.Instance.IsWithinUnlockLimits(x, y);
         }
 
         SpriteRenderer sr = slot.GetComponent<SpriteRenderer>();
         DragHandler dh = slot.GetComponent<DragHandler>();
+        BoxCollider2D col = slot.GetComponent<BoxCollider2D>();
+
+        // Hide all slots outside the visible farm area rectangle.
+        if (!isWithinVisibleFarmArea)
+        {
+            if (sr != null) sr.enabled = false;
+            if (dh != null) dh.enabled = false;
+            if (col != null) col.enabled = false;
+            slot.SetLocked(true);
+            return;
+        }
+
+        // Ensure visible-area slots stay renderable / interactive according to lock state.
+        if (sr != null) sr.enabled = true;
+        if (col != null) col.enabled = true;
 
         // Handle Border visual first
         if (slot.IsBorder)
         {
-            if (sr != null) sr.color = Color.black;
+            if (sr != null) sr.color = _useThemedFarmBackground ? SlotThemedBorderColor : SlotVisibleBorderColor;
             if (dh != null) dh.enabled = false;
             slot.SetLocked(true);
             return;
@@ -145,7 +173,7 @@ public class GridManager : MonoBehaviour
         if (isUnlocked)
         {
             // Normal playable slot
-            if (sr != null) sr.color = Color.white;
+            if (sr != null) sr.color = _useThemedFarmBackground ? SlotThemedUnlockedColor : SlotVisibleUnlockedColor;
             if (dh != null) dh.enabled = true;
             slot.SetLocked(false);
         }
@@ -153,7 +181,7 @@ public class GridManager : MonoBehaviour
         {
             // All locked slots look the same (dark gray/neutral)
             // Removed the green "adjacent" highlight as requested
-            if (sr != null) sr.color = new Color(0.12f, 0.14f, 0.18f, 0.44f);
+            if (sr != null) sr.color = _useThemedFarmBackground ? SlotThemedLockedColor : SlotVisibleLockedColor;
             
             if (dh != null) dh.enabled = false;
             slot.SetLocked(true);
