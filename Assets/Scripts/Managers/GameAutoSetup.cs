@@ -13,7 +13,7 @@ public class GameAutoSetup : MonoBehaviour
     private const int ManualCompensationCoin = 4000;
     private const int ManualCompensationGem = 200;
     // Optical center nudge: slightly right looks more centered with this artwork framing.
-    private const float FarmBackgroundVisualNudgeX = 0.06f;
+    private const float FarmBackgroundVisualNudgeX = 0.00f;
 
     private const int FarmBoardColumns = 8;
     private const int FarmBoardRows = 11;
