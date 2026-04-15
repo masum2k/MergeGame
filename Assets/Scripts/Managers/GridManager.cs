@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class GridManager : MonoBehaviour
 {
+    private const string GridStateKey = "GridState";
+
     [Header("Grid Settings")]
     public int columns = 5;
     public int rows = 5;
@@ -73,13 +75,16 @@ public class GridManager : MonoBehaviour
         // Offset to keep the whole grid centered based on sizes
         float offsetX = (columns - 1) * spacing / 2f;
         float offsetY = (rows - 1) * spacing / 2f;
+        Vector3 origin = gridParent.position;
 
         for (int x = 0; x < columns; x++)
         {
             for (int y = 0; y < rows; y++)
             {
-                // Calculate position for current iteration
-                Vector2 spawnPos = new Vector2((x * spacing) - offsetX, (y * spacing) - offsetY);
+                // Calculate position for current iteration (world-space, aligned around grid parent origin)
+                Vector2 spawnPos = new Vector2(
+                    origin.x + (x * spacing) - offsetX,
+                    origin.y + (y * spacing) - offsetY);
 
                 // Instantiate prefab
                 GameObject newSlotObj = Instantiate(slotPrefab, spawnPos, Quaternion.identity, gridParent);
@@ -116,8 +121,8 @@ public class GridManager : MonoBehaviour
                 slotComponent.Initialize(x, y);
                 _grid[x, y] = slotComponent;
 
-                // Mark world boundary (col 0/19 and row 0/24)
-                if (x == 0 || x == columns - 1 || y == 0 || y == rows - 1)
+                // Keep only top/bottom rows as hard border.
+                if (y == 0 || y == rows - 1)
                 {
                     slotComponent.IsBorder = true;
                 }
@@ -297,25 +302,42 @@ public class GridManager : MonoBehaviour
         {
             if (!slot.IsEmpty)
             {
-                // Format: x,y,tier
-                sb.Append($"{slot.X},{slot.Y},{(int)slot.CurrentCrop.tier};");
+                // Format: x,y,tier,cropNameBase64 (name field optional for backward compatibility)
+                int tierRaw = (int)slot.CurrentCrop.tier;
+                string encodedCropName = EncodeGridCropName(slot.CurrentCrop.itemName);
+                if (string.IsNullOrEmpty(encodedCropName))
+                {
+                    sb.Append($"{slot.X},{slot.Y},{tierRaw};");
+                }
+                else
+                {
+                    sb.Append($"{slot.X},{slot.Y},{tierRaw},{encodedCropName};");
+                }
             }
         }
-        SecurePlayerPrefs.SetString("GridState", sb.ToString());
+        SecurePlayerPrefs.SetString(GridStateKey, sb.ToString());
         SaveCoordinator.MarkDirty();
     }
 
     public void LoadGridState()
     {
-        if (!SecurePlayerPrefs.HasKey("GridState")) return;
-        string data = SecurePlayerPrefs.GetString("GridState");
+        if (!SecurePlayerPrefs.HasKey(GridStateKey)) return;
+        string data = SecurePlayerPrefs.GetString(GridStateKey);
         if (string.IsNullOrEmpty(data)) return;
+
+        if (GameContentGenerator.Instance == null)
+        {
+            Debug.LogWarning("GridManager: GameContentGenerator is missing, GridState load skipped.");
+            return;
+        }
+
+        bool containsLegacyTierOnlyEntries = false;
 
         string[] entries = data.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);
         foreach (string entry in entries)
         {
             string[] parts = entry.Split(',');
-            if (parts.Length == 3 &&
+            if (parts.Length >= 3 &&
                 int.TryParse(parts[0], out int x) &&
                 int.TryParse(parts[1], out int y) &&
                 int.TryParse(parts[2], out int tierRaw))
@@ -324,13 +346,70 @@ public class GridManager : MonoBehaviour
 
                 if (x >= 0 && x < columns && y >= 0 && y < rows)
                 {
-                    CropData crop = GameContentGenerator.Instance.GetCropByTier(tier);
+                    CropData crop = null;
+
+                    // New format: resolve by exact crop name first.
+                    if (parts.Length >= 4 && TryDecodeGridCropName(parts[3], out string cropName))
+                    {
+                        crop = GameContentGenerator.Instance.GetCropByName(cropName);
+                    }
+                    else
+                    {
+                        containsLegacyTierOnlyEntries = true;
+                    }
+
+                    // Legacy fallback: resolve by tier only.
+                    if (crop == null)
+                    {
+                        crop = GameContentGenerator.Instance.GetCropByTier(tier);
+                    }
+
                     if (crop != null)
                     {
                         _grid[x, y].SetCrop(crop);
                     }
                 }
             }
+        }
+
+        // Rewrite once so subsequent restarts use exact crop identity.
+        if (containsLegacyTierOnlyEntries)
+        {
+            SaveGridState();
+        }
+    }
+
+    private static string EncodeGridCropName(string cropName)
+    {
+        if (string.IsNullOrWhiteSpace(cropName))
+            return string.Empty;
+
+        try
+        {
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(cropName);
+            return System.Convert.ToBase64String(bytes);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static bool TryDecodeGridCropName(string encodedCropName, out string cropName)
+    {
+        cropName = string.Empty;
+        if (string.IsNullOrWhiteSpace(encodedCropName))
+            return false;
+
+        try
+        {
+            byte[] bytes = System.Convert.FromBase64String(encodedCropName);
+            cropName = System.Text.Encoding.UTF8.GetString(bytes);
+            return !string.IsNullOrWhiteSpace(cropName);
+        }
+        catch
+        {
+            return false;
         }
     }
 }

@@ -166,10 +166,37 @@ public class GameContentGenerator : MonoBehaviour
         AllBoosts.Add(incomeBoost);
 
         // 3. Generate Chests
-        if (CrateManager.Instance != null)
+        PopulateCrates();
+    }
+
+    /// <summary>
+    /// Ensures crate list is present even if manager initialization order changed.
+    /// Safe to call multiple times.
+    /// </summary>
+    public void EnsureCratesGenerated()
+    {
+        if (AllCrops == null || AllCrops.Count == 0 || AllBoosts == null || AllBoosts.Count == 0)
         {
-            CrateManager.Instance.AllCrates.Clear();
+            GenerateContent();
+            return;
         }
+
+        PopulateCrates();
+    }
+
+    private void PopulateCrates()
+    {
+        if (CrateManager.Instance == null)
+            return;
+
+        if (CrateManager.Instance.AllCrates == null)
+        {
+            CrateManager.Instance.AllCrates = new List<CrateData>();
+        }
+
+        CrateManager.Instance.AllCrates.Clear();
+
+        BoostData incomeBoost = AllBoosts != null && AllBoosts.Count > 0 ? AllBoosts[0] : null;
 
         CreateChestFromTierRange("Gunluk Sandik", 0, CurrencyType.Coin, CrateRarity.Daily, 0, 7, 10, false, incomeBoost, 6f);
         CreateChestFromTierRange("Bronz Sandik", 80, CurrencyType.Coin, CrateRarity.Bronze, 0, 2, 10, false);

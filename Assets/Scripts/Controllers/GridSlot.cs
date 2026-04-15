@@ -28,7 +28,9 @@ public class GridSlot : MonoBehaviour
     private const float ItemBackgroundTargetWorldSize = 0.62f;
     private const float ItemIconFallbackScale = 1.5f;
     private const float ItemBackgroundFallbackScale = 15f;
-    private static readonly Vector2 SlotBaseNormalizedSize = Vector2.one;
+    private const float SlotBaseFillMultiplier = 1.10f;
+    private static readonly Vector2 SlotBaseNormalizedSize = Vector2.one * SlotBaseFillMultiplier;
+    private const string SlotBaseResourcePath = "Slot/toprak4";
 
     private static bool _slotBaseSpriteLoaded;
     private static Sprite _slotBaseSprite;
@@ -223,7 +225,13 @@ public class GridSlot : MonoBehaviour
             return _slotBaseSprite;
 
         _slotBaseSpriteLoaded = true;
-        _slotBaseSprite = Resources.Load<Sprite>("Slot/spr_slot_base_tile");
+
+        _slotBaseSprite = Resources.Load<Sprite>(SlotBaseResourcePath);
+        if (_slotBaseSprite == null)
+        {
+            Debug.LogWarning("GridSlot could not load required sprite at Resources/Slot/toprak4.");
+        }
+
         return _slotBaseSprite;
     }
 
@@ -272,7 +280,12 @@ public class GridSlot : MonoBehaviour
 
     private static bool IsSlotBaseSprite(Sprite sprite)
     {
-        return sprite != null
-            && sprite.name.StartsWith("spr_slot_base_tile", System.StringComparison.OrdinalIgnoreCase);
+        if (sprite == null)
+            return false;
+
+        if (_slotBaseSprite != null && sprite == _slotBaseSprite)
+            return true;
+
+        return sprite.name.StartsWith("toprak4", System.StringComparison.OrdinalIgnoreCase);
     }
 }

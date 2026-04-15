@@ -36,6 +36,11 @@ public class CrateManager : MonoBehaviour
 
     private void Start()
     {
+        if (GameContentGenerator.Instance != null)
+        {
+            GameContentGenerator.Instance.EnsureCratesGenerated();
+        }
+
         BootstrapUnlocksFromInventory();
     }
 

@@ -259,6 +259,13 @@ public class MarketScreenPage : MonoBehaviour
         if (!_built || _contentRoot == null)
             return;
 
+        if (GameContentGenerator.Instance != null
+            && CrateManager.Instance != null
+            && (CrateManager.Instance.AllCrates == null || CrateManager.Instance.AllCrates.Count == 0))
+        {
+            GameContentGenerator.Instance.EnsureCratesGenerated();
+        }
+
         for (int i = _contentRoot.childCount - 1; i >= 0; i--)
         {
             Destroy(_contentRoot.GetChild(i).gameObject);

@@ -3,10 +3,35 @@ using UnityEngine;
 public class GameAutoSetup : MonoBehaviour
 {
     private const string FarmLayoutVersionKey = "FarmLayoutVersion";
-    private const int CurrentFarmLayoutVersion = 2;
+    private const int CurrentFarmLayoutVersion = 4;
     private const string FarmBackgroundResourcePath = "Farm/ANAMENU-Background";
     private const string FarmBackgroundObjectName = "FarmBackground_Auto";
     private const int FarmBackgroundSortingOrder = -500;
+    private const float FarmBackgroundOffsetX = 0f;
+    private const float FarmBackgroundOffsetY = 0f;
+    private const string ManualCompensationKey = "ManualCompensation_20260416";
+    private const int ManualCompensationCoin = 4000;
+    private const int ManualCompensationGem = 200;
+    // Optical center nudge: slightly right looks more centered with this artwork framing.
+    private const float FarmBackgroundVisualNudgeX = 0.06f;
+
+    private const int FarmBoardColumns = 8;
+    private const int FarmBoardRows = 11;
+    private const int FarmInitialUnlockColumns = 8;
+    private const int FarmInitialUnlockRows = 9;
+    private const float FarmGridOffsetX = 0f;
+    private const float FarmGridOffsetY = 0.04f;
+
+    // Pixel bounds (source texture coordinates, top-left origin) for the playable 8x11 marble board.
+    // IMPORTANT: These were measured on the original ANAMENU-Background source size.
+    // Unity may downscale imported textures at runtime (maxTextureSize), so normalize against
+    // this reference size instead of the runtime texture width/height.
+    private const float FarmBoardSourceTextureWidthPx = 1568f;
+    private const float FarmBoardSourceTextureHeightPx = 2676f;
+    private const float FarmBoardLeftPx = 156f;
+    private const float FarmBoardRightPx = 1410f;
+    private const float FarmBoardTopPx = 389f;
+    private const float FarmBoardBottomPx = 2110f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoBoot()
@@ -42,45 +67,77 @@ public class GameAutoSetup : MonoBehaviour
         EnsureSingleton<QuestManager>("QuestManager");
         EnsureSingleton<StreakRewardManager>("StreakRewardManager");
 
+        if (GameContentGenerator.Instance != null)
+        {
+            GameContentGenerator.Instance.EnsureCratesGenerated();
+        }
+
+        GrantManualCompensationIfNeeded();
+
         // Apply farm layout migration before loading unlock / grid save data.
         MigrateFarmLayoutSaveDataIfNeeded();
 
+        GridManager gridManager = FindAnyObjectByType<GridManager>();
         // SlotUnlockManager must exist BEFORE GridManager.Start() runs
         SlotUnlockManager unlockMgr = EnsureSingleton<SlotUnlockManager>("SlotUnlockManager");
 
         Camera cam = Camera.main;
 
-        // =============================================
-        //  STEP 2: Grid layout — 20 columns x 25 rows
-        //  Initially unlock a 4x5 patch in the visible farm area
-        // =============================================
-        const int columns = 20;
-        const int rows    = 25;
-        const float spacing = 0.7f;
-        const int unlockCols = 4;
-        const int unlockRows = 5;
-
-        int unlockMinCol = 1;
-        int unlockMaxCol = columns - 2;
-        int unlockMinRow = 1;
-        int unlockMaxRow = rows - 2;
-
+        CameraController cameraController = null;
         if (cam != null)
         {
-            CalculateUnlockAreaFromFarmViewport(
-                cam,
-                columns,
-                rows,
-                spacing,
-                out unlockMinCol,
-                out unlockMaxCol,
-                out unlockMinRow,
-                out unlockMaxRow);
+            // Keep farm focused around active area on portrait screens.
+            cam.orthographicSize = 6.2f;
+
+            cameraController = cam.GetComponent<CameraController>();
+            if (cameraController == null)
+            {
+                cameraController = cam.gameObject.AddComponent<CameraController>();
+            }
+
+            // Keep camera centered so background framing remains consistent.
+            cam.transform.position = new Vector3(0f, 0f, cam.transform.position.z);
         }
 
+        SpriteRenderer farmBackgroundRenderer = null;
+        if (cam != null)
+        {
+            farmBackgroundRenderer = EnsureFarmBackground(cam);
+        }
+
+        bool hasBoardRect = TryGetFarmBoardWorldRect(farmBackgroundRenderer, out Vector2 boardCenter, out float boardWidth, out float boardHeight);
+
+        float spacing = 0.7f;
+        if (hasBoardRect)
+        {
+            float cellWidth = boardWidth / FarmBoardColumns;
+            float cellHeight = boardHeight / FarmBoardRows;
+            spacing = Mathf.Min(cellWidth, cellHeight);
+        }
+
+        if (gridManager != null)
+        {
+            gridManager.columns = FarmBoardColumns;
+            gridManager.rows = FarmBoardRows;
+            gridManager.spacing = spacing;
+
+            if (hasBoardRect)
+            {
+                Vector3 gridPos = gridManager.transform.position;
+                gridPos.x = boardCenter.x + FarmGridOffsetX;
+                gridPos.y = boardCenter.y + FarmGridOffsetY;
+                gridManager.transform.position = gridPos;
+            }
+        }
+
+        int unlockMinCol = 0;
+        int unlockMaxCol = FarmBoardColumns - 1;
+        int unlockMinRow = 1;
+        int unlockMaxRow = FarmBoardRows - 2;
+
         CenterStartPatchWithinLimits(
-            unlockCols,
-            unlockRows,
+            FarmInitialUnlockColumns,
+            FarmInitialUnlockRows,
             unlockMinCol,
             unlockMaxCol,
             unlockMinRow,
@@ -89,15 +146,8 @@ public class GameAutoSetup : MonoBehaviour
             out int unlockStartRow);
 
         unlockMgr.SetUnlockLimits(unlockMinCol, unlockMaxCol, unlockMinRow, unlockMaxRow);
-        unlockMgr.Initialize(unlockStartCol, unlockStartRow, unlockCols, unlockRows);
-
-        GridManager gridManager = FindAnyObjectByType<GridManager>();
-        if (gridManager != null)
-        {
-            gridManager.columns = columns;
-            gridManager.rows    = rows;
-            gridManager.spacing = spacing;
-        }
+        unlockMgr.Initialize(unlockStartCol, unlockStartRow, FarmInitialUnlockColumns, FarmInitialUnlockRows);
+        unlockMgr.TryRecenterIfOnlyInitialArea(unlockStartCol, unlockStartRow, FarmInitialUnlockColumns, FarmInitialUnlockRows);
 
         // =============================================
         //  STEP 6: IncomeManager tick rate
@@ -107,37 +157,23 @@ public class GameAutoSetup : MonoBehaviour
         inc.collectionInterval = 1f;
 
         // =============================================
-        //  STEP 7: Camera setup
-        //  Add CameraController to main camera and configure bounds.
-        //  Camera starts centered on the unlocked region.
+        //  STEP 7: Camera setup (pan/zoom disabled in farm flow)
         // =============================================
-        if (cam != null)
+        if (cam != null && cameraController != null)
         {
-            // Keep farm focused around active area on portrait screens.
-            cam.orthographicSize = 6.2f;
+            float halfW = (FarmBoardColumns - 1) * spacing * 0.5f;
+            float halfH = (FarmBoardRows - 1) * spacing * 0.5f;
+            float centerX = hasBoardRect ? boardCenter.x + FarmGridOffsetX : 0f;
+            float centerY = hasBoardRect ? boardCenter.y + FarmGridOffsetY : 0f;
 
-            // Add CameraController if not already present
-            CameraController cc = cam.GetComponent<CameraController>();
-            if (cc == null) cc = cam.gameObject.AddComponent<CameraController>();
-
-            // Calculate world extents of the full grid
-            float halfW = (columns - 1) * spacing * 0.5f;
-            float halfH = (rows    - 1) * spacing * 0.5f;
-
-            // Set full grid bounds for the camera controller
-            cc.SetBounds(-halfW, halfW, -halfH, halfH);
-
-            // Keep camera centered for a stable board overview.
-            cam.transform.position = new Vector3(0f, 0f, cam.transform.position.z);
+            cameraController.SetBounds(centerX - halfW, centerX + halfW, centerY - halfH, centerY + halfH);
 
             // Disable in-farm pan/zoom so horizontal swipes always change screens.
-            cc.enabled = false;
-
-            EnsureFarmBackground(cam, gridManager != null ? gridManager.transform : null);
+            cameraController.enabled = false;
         }
     }
 
-    private static void EnsureFarmBackground(Camera cam, Transform parent)
+    private static SpriteRenderer EnsureFarmBackground(Camera cam)
     {
         Sprite backgroundSprite = null;
         Texture2D backgroundTexture = Resources.Load<Texture2D>(FarmBackgroundResourcePath);
@@ -152,13 +188,28 @@ public class GameAutoSetup : MonoBehaviour
         }
         else
         {
-            backgroundSprite = Resources.Load<Sprite>(FarmBackgroundResourcePath);
+            // Some imports expose only Sprite (e.g. multiple-sprite mode). In that case,
+            // rebuild a full-texture sprite so bounds/pivot stay stable for board mapping.
+            Sprite loadedSprite = Resources.Load<Sprite>(FarmBackgroundResourcePath);
+            if (loadedSprite != null && loadedSprite.texture != null)
+            {
+                Texture2D tex = loadedSprite.texture;
+                backgroundSprite = Sprite.Create(
+                    tex,
+                    new Rect(0f, 0f, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+            else
+            {
+                backgroundSprite = loadedSprite;
+            }
         }
 
         if (backgroundSprite == null)
         {
             Debug.LogWarning("GameAutoSetup: Farm background sprite not found at Resources/" + FarmBackgroundResourcePath);
-            return;
+            return null;
         }
 
         GameObject backgroundObj = GameObject.Find(FarmBackgroundObjectName);
@@ -167,13 +218,13 @@ public class GameAutoSetup : MonoBehaviour
             backgroundObj = new GameObject(FarmBackgroundObjectName);
         }
 
-        if (parent != null && backgroundObj.transform.parent != parent)
+        if (backgroundObj.transform.parent != null)
         {
-            backgroundObj.transform.SetParent(parent, false);
+            backgroundObj.transform.SetParent(null, false);
         }
 
-        backgroundObj.transform.localPosition = Vector3.zero;
-        backgroundObj.transform.localRotation = Quaternion.identity;
+        backgroundObj.transform.position = new Vector3(FarmBackgroundOffsetX, FarmBackgroundOffsetY, 0f);
+        backgroundObj.transform.rotation = Quaternion.identity;
 
         SpriteRenderer backgroundRenderer = backgroundObj.GetComponent<SpriteRenderer>();
         if (backgroundRenderer == null)
@@ -183,12 +234,12 @@ public class GameAutoSetup : MonoBehaviour
 
         backgroundRenderer.sprite = backgroundSprite;
         backgroundRenderer.sortingOrder = FarmBackgroundSortingOrder;
-        backgroundRenderer.color = new Color(1f, 1f, 1f, 0.9f);
+        backgroundRenderer.color = Color.white;
 
         Vector2 spriteSize = backgroundSprite.bounds.size;
         if (spriteSize.x <= Mathf.Epsilon || spriteSize.y <= Mathf.Epsilon)
         {
-            return;
+            return backgroundRenderer;
         }
 
         float visibleWorldHeight = cam.orthographicSize * 2f;
@@ -196,6 +247,58 @@ public class GameAutoSetup : MonoBehaviour
         float coverScale = Mathf.Max(visibleWorldWidth / spriteSize.x, visibleWorldHeight / spriteSize.y);
 
         backgroundObj.transform.localScale = new Vector3(coverScale, coverScale, 1f);
+
+        // Anchor horizontal placement to safe-area center so portrait aspect differences
+        // (16:9, 18:9, notches) do not introduce manual drift.
+        float safeCenterScreenX = Screen.safeArea.x + (Screen.safeArea.width * 0.5f);
+        float safeCenterWorldX = cam.ScreenToWorldPoint(new Vector3(safeCenterScreenX, 0f, cam.nearClipPlane)).x;
+        backgroundObj.transform.position = new Vector3(
+            safeCenterWorldX + FarmBackgroundOffsetX + FarmBackgroundVisualNudgeX,
+            FarmBackgroundOffsetY,
+            0f);
+        return backgroundRenderer;
+    }
+
+    private static bool TryGetFarmBoardWorldRect(SpriteRenderer backgroundRenderer, out Vector2 center, out float width, out float height)
+    {
+        center = Vector2.zero;
+        width = 0f;
+        height = 0f;
+
+        if (backgroundRenderer == null || backgroundRenderer.sprite == null)
+        {
+            return false;
+        }
+
+        Texture2D texture = backgroundRenderer.sprite.texture;
+        if (texture == null || texture.width <= 0 || texture.height <= 0)
+        {
+            return false;
+        }
+
+        Bounds bounds = backgroundRenderer.bounds;
+        float texW = texture.width;
+        float texH = texture.height;
+
+        float leftNorm = FarmBoardLeftPx / FarmBoardSourceTextureWidthPx;
+        float rightNorm = FarmBoardRightPx / FarmBoardSourceTextureWidthPx;
+        float topNorm = FarmBoardTopPx / FarmBoardSourceTextureHeightPx;
+        float bottomNorm = FarmBoardBottomPx / FarmBoardSourceTextureHeightPx;
+
+        leftNorm = Mathf.Clamp01(leftNorm);
+        rightNorm = Mathf.Clamp01(rightNorm);
+        topNorm = Mathf.Clamp01(topNorm);
+        bottomNorm = Mathf.Clamp01(bottomNorm);
+
+        float left = bounds.min.x + bounds.size.x * leftNorm;
+        float right = bounds.min.x + bounds.size.x * rightNorm;
+        float top = bounds.max.y - bounds.size.y * topNorm;
+        float bottom = bounds.max.y - bounds.size.y * bottomNorm;
+
+        width = Mathf.Max(0.001f, right - left);
+        height = Mathf.Max(0.001f, top - bottom);
+        center = new Vector2((left + right) * 0.5f, (bottom + top) * 0.5f);
+        return true;
     }
 
     private static void MigrateFarmLayoutSaveDataIfNeeded()
@@ -210,6 +313,21 @@ public class GameAutoSetup : MonoBehaviour
         SecurePlayerPrefs.DeleteKey("UnlockedSlots");
         SecurePlayerPrefs.DeleteKey("GridState");
         SecurePlayerPrefs.SetInt(FarmLayoutVersionKey, CurrentFarmLayoutVersion);
+    }
+
+    private static void GrantManualCompensationIfNeeded()
+    {
+        if (CurrencyManager.Instance == null)
+            return;
+
+        if (SecurePlayerPrefs.GetInt(ManualCompensationKey, 0) == 1)
+            return;
+
+        CurrencyManager.Instance.AddCoin(ManualCompensationCoin);
+        CurrencyManager.Instance.AddGem(ManualCompensationGem);
+        SecurePlayerPrefs.SetInt(ManualCompensationKey, 1);
+        SaveCoordinator.MarkDirty();
+        Debug.Log("GameAutoSetup: Manual compensation granted (4000 coin, 200 gem).");
     }
 
     private static void CalculateUnlockAreaFromFarmViewport(

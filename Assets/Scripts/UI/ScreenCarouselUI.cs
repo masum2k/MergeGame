@@ -48,6 +48,7 @@ public class ScreenCarouselUI : MonoBehaviour
     private readonly Color _bottomNavLabelActiveColor = Color.white;
     private readonly Color _bottomNavLabelIdleColor = new Color(1f, 1f, 1f, 0.94f);
     private const string BottomNavMenuResourcePath = "BottomNav/ALTMENU-Full-Cropped";
+    private const string FarmAllCropsButtonResourcePath = "Farm/ANAMENU-TumBesinler";
     private const float BottomNavHeight = 244f;
     private const float BottomNavEdgePadding = 36f;
     private const float BottomNavSlotGap = 12f;
@@ -58,6 +59,7 @@ public class ScreenCarouselUI : MonoBehaviour
     private const float BottomNavLabelBottomOffset = -2f;
     private const float BottomNavLabelHeight = 54f;
     private const float BottomNavLabelEdgeNudge = 10f;
+    private Sprite _farmAllCropsButtonSprite;
 
     private void Start()
     {
@@ -69,6 +71,7 @@ public class ScreenCarouselUI : MonoBehaviour
         _mainCamera = Camera.main;
         CacheCameraBaseIfNeeded();
         LoadBottomNavIcons();
+        LoadFarmOverlaySprites();
 
         BuildRoot(canvas.transform);
         BuildBottomNavigation(canvas.transform);
@@ -209,6 +212,32 @@ public class ScreenCarouselUI : MonoBehaviour
                     100f);
             }
         }
+    }
+
+    private void LoadFarmOverlaySprites()
+    {
+        _farmAllCropsButtonSprite = LoadSpriteResource(FarmAllCropsButtonResourcePath);
+    }
+
+    private static Sprite LoadSpriteResource(string path)
+    {
+        Sprite sprite = Resources.Load<Sprite>(path);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        Texture2D texture = Resources.Load<Texture2D>(path);
+        if (texture == null)
+        {
+            return null;
+        }
+
+        return Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f);
     }
 
     private void CreateBottomNavButton(Transform parent, string label, int targetIndex)
@@ -401,25 +430,21 @@ public class ScreenCarouselUI : MonoBehaviour
         hintRt.offsetMin = Vector2.zero;
         hintRt.offsetMax = Vector2.zero;
 
-        GameObject swipeObj = new GameObject("SwipeHint", typeof(RectTransform));
-        swipeObj.transform.SetParent(farmPage, false);
-        TMPro.TextMeshProUGUI swipeHint = swipeObj.AddComponent<TMPro.TextMeshProUGUI>();
-        swipeHint.text = "<  Kaydirarak gecis: Market - Tarla - Fabrika - Yetenek Agaci  >";
-        swipeHint.fontSize = 18;
-        swipeHint.alignment = TMPro.TextAlignmentOptions.Center;
-        swipeHint.color = new Color(0.68f, 0.8f, 0.94f, 0.92f);
-
-        RectTransform swipeRt = swipeObj.GetComponent<RectTransform>();
-        swipeRt.anchorMin = new Vector2(0f, 0f);
-        swipeRt.anchorMax = new Vector2(1f, 0f);
-        swipeRt.pivot = new Vector2(0.5f, 0f);
-        swipeRt.anchoredPosition = new Vector2(0f, 258f);
-        swipeRt.sizeDelta = new Vector2(0f, 30f);
-
         GameObject cropListBtnObj = new GameObject("AllCropsButton", typeof(RectTransform));
         cropListBtnObj.transform.SetParent(farmPage, false);
         Image cropListBtnBg = cropListBtnObj.AddComponent<Image>();
-        cropListBtnBg.color = new Color(0.2f, 0.52f, 0.9f, 0.95f);
+        if (_farmAllCropsButtonSprite != null)
+        {
+            cropListBtnBg.sprite = _farmAllCropsButtonSprite;
+            cropListBtnBg.type = Image.Type.Simple;
+            cropListBtnBg.preserveAspect = true;
+            cropListBtnBg.color = Color.white;
+        }
+        else
+        {
+            cropListBtnBg.color = new Color(0.2f, 0.52f, 0.9f, 0.95f);
+        }
+
         Button cropListBtn = cropListBtnObj.AddComponent<Button>();
         cropListBtn.targetGraphic = cropListBtnBg;
         cropListBtn.onClick.AddListener(() =>
@@ -434,23 +459,44 @@ public class ScreenCarouselUI : MonoBehaviour
         cropListBtnRt.anchorMin = new Vector2(0f, 0f);
         cropListBtnRt.anchorMax = new Vector2(0f, 0f);
         cropListBtnRt.pivot = new Vector2(0f, 0f);
-        cropListBtnRt.anchoredPosition = new Vector2(20f, 282f);
-        cropListBtnRt.sizeDelta = new Vector2(170f, 56f);
+        cropListBtnRt.anchoredPosition = new Vector2(20f, 256f);
+        cropListBtnRt.sizeDelta = _farmAllCropsButtonSprite != null
+            ? new Vector2(188f, 156f)
+            : new Vector2(170f, 56f);
 
         GameObject cropListBtnTextObj = new GameObject("Text", typeof(RectTransform));
         cropListBtnTextObj.transform.SetParent(cropListBtnObj.transform, false);
         TMPro.TextMeshProUGUI cropListBtnText = cropListBtnTextObj.AddComponent<TMPro.TextMeshProUGUI>();
         cropListBtnText.text = "Tum Besinler";
-        cropListBtnText.fontSize = 20;
+        cropListBtnText.fontSize = _farmAllCropsButtonSprite != null ? 18 : 20;
         cropListBtnText.fontStyle = TMPro.FontStyles.Bold;
         cropListBtnText.alignment = TMPro.TextAlignmentOptions.Center;
-        cropListBtnText.color = Color.white;
+        cropListBtnText.color = _farmAllCropsButtonSprite != null
+            ? new Color(0.96f, 0.93f, 0.78f, 1f)
+            : Color.white;
+
+        if (_farmAllCropsButtonSprite != null)
+        {
+            cropListBtnText.outlineColor = new Color(0.05f, 0.08f, 0.12f, 0.95f);
+            cropListBtnText.outlineWidth = 0.18f;
+        }
 
         RectTransform cropListTextRt = cropListBtnTextObj.GetComponent<RectTransform>();
-        cropListTextRt.anchorMin = Vector2.zero;
-        cropListTextRt.anchorMax = Vector2.one;
-        cropListTextRt.offsetMin = Vector2.zero;
-        cropListTextRt.offsetMax = Vector2.zero;
+        if (_farmAllCropsButtonSprite != null)
+        {
+            cropListTextRt.anchorMin = new Vector2(0.5f, 0f);
+            cropListTextRt.anchorMax = new Vector2(0.5f, 0f);
+            cropListTextRt.pivot = new Vector2(0.5f, 0f);
+            cropListTextRt.anchoredPosition = new Vector2(0f, 10f);
+            cropListTextRt.sizeDelta = new Vector2(146f, 36f);
+        }
+        else
+        {
+            cropListTextRt.anchorMin = Vector2.zero;
+            cropListTextRt.anchorMax = Vector2.one;
+            cropListTextRt.offsetMin = Vector2.zero;
+            cropListTextRt.offsetMax = Vector2.zero;
+        }
     }
 
     private void HandlePointerInput()
