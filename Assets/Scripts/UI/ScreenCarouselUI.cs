@@ -329,9 +329,60 @@ public class ScreenCarouselUI : MonoBehaviour
         _gestureLockedVertical = false;
         _dragOffsetX = 0f;
 
-        _currentIndex = safeTarget;
-        SetupIdlePositions();
-        ApplyScreenState();
+        _snapCoroutine = StartCoroutine(NavigateToIndexRoutine(safeTarget));
+    }
+
+    private IEnumerator NavigateToIndexRoutine(int targetIndex)
+    {
+        _isAnimating = true;
+
+        while (_currentIndex != targetIndex)
+        {
+            int direction = GetShortestStepDirection(_currentIndex, targetIndex);
+            if (direction == 0)
+                break;
+
+            SetupIdlePositions();
+
+            float width = GetPageWidth();
+            float startOffset = 0f;
+            float targetOffset = direction > 0 ? -width : width;
+
+            float elapsed = 0f;
+            while (elapsed < transitionDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / transitionDuration);
+                t = Mathf.SmoothStep(0f, 1f, t);
+
+                float currentOffset = Mathf.Lerp(startOffset, targetOffset, t);
+                ApplyDragOffset(currentOffset);
+
+                yield return null;
+            }
+
+            ApplyDragOffset(targetOffset);
+            _currentIndex = Wrap(_currentIndex + direction);
+            _dragOffsetX = 0f;
+
+            SetupIdlePositions();
+            ApplyScreenState();
+        }
+
+        _isAnimating = false;
+        _snapCoroutine = null;
+    }
+
+    private int GetShortestStepDirection(int fromIndex, int toIndex)
+    {
+        int count = _pages != null && _pages.Length > 0 ? _pages.Length : 4;
+        int forwardSteps = (toIndex - fromIndex + count) % count;
+        int backwardSteps = (fromIndex - toIndex + count) % count;
+
+        if (forwardSteps == 0)
+            return 0;
+
+        return forwardSteps <= backwardSteps ? 1 : -1;
     }
 
     private void UpdateBottomNavigationVisuals()
