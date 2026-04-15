@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Text;
 
 /// <summary>
 /// A utility that generates all game content (Crops, Boosts, Chests) at runtime
@@ -11,6 +12,8 @@ public class GameContentGenerator : MonoBehaviour
     public List<CropData> AllCrops = new List<CropData>();
     public List<BoostData> AllBoosts = new List<BoostData>();
     private Sprite _defaultSprite;
+    private Sprite[] _resourceCropSprites;
+    private readonly Dictionary<string, Sprite> _resolvedCropSpriteCache = new Dictionary<string, Sprite>();
 
     private void Awake()
     {
@@ -103,6 +106,7 @@ public class GameContentGenerator : MonoBehaviour
         int cropsPerTier = 4;
 
         CropData prev = null;
+        int missingCropSpriteCount = 0;
         for (int i = 0; i < names.Length; i++)
         {
             CropData c = ScriptableObject.CreateInstance<CropData>();
@@ -113,7 +117,15 @@ public class GameContentGenerator : MonoBehaviour
 
             Color tierColor = tierPalette[Mathf.Clamp(tierIndex, 0, tierPalette.Length - 1)];
             c.itemColor = Color.Lerp(tierColor, Color.white, localIndex * 0.16f);
-            c.icon = _defaultSprite;
+
+            // Prefer packaged crop art if available; fallback to generated placeholder.
+            Sprite cropSprite = ResolveCropSprite(c.itemName, tierIndex, localIndex);
+            if (cropSprite == null)
+            {
+                missingCropSpriteCount++;
+            }
+
+            c.icon = cropSprite != null ? cropSprite : _defaultSprite;
             c.tier = (CropTier)tierIndex;
             c.description = BuildAutoDescription(c.itemName, tierIndex, localIndex);
 
@@ -132,6 +144,11 @@ public class GameContentGenerator : MonoBehaviour
             prev.nextLevelCrop = null;
         }
 
+        if (missingCropSpriteCount > 0)
+        {
+            Debug.LogWarning("GameContentGenerator: " + missingCropSpriteCount + " crop sprite missing, default placeholders are used.");
+        }
+
         // 2. Generate Boosts
         AllBoosts.Clear();
 
@@ -142,7 +159,9 @@ public class GameContentGenerator : MonoBehaviour
         incomeBoost.multiplier = 2.0f;
         incomeBoost.durationSeconds = 60f;
         incomeBoost.itemColor = Color.cyan;
-        incomeBoost.icon = _defaultSprite;
+
+        Sprite boostSprite = Resources.Load<Sprite>("Boosts/spr_boost_2x_kazanc_iksiri");
+        incomeBoost.icon = boostSprite != null ? boostSprite : _defaultSprite;
 
         AllBoosts.Add(incomeBoost);
 
@@ -293,5 +312,92 @@ public class GameContentGenerator : MonoBehaviour
         int tierNo = tierIndex + 1;
         string detail = tone[Mathf.Clamp(localIndex, 0, tone.Length - 1)];
         return cropName + " T" + tierNo + " besinidir. " + detail;
+    }
+
+    private Sprite ResolveCropSprite(string cropName, int tierIndex, int localIndex)
+    {
+        if (string.IsNullOrWhiteSpace(cropName))
+            return null;
+
+        string normalizedCropName = NormalizeAssetToken(cropName);
+        if (_resolvedCropSpriteCache.TryGetValue(normalizedCropName, out Sprite cached))
+            return cached;
+
+        // Primary path: deterministic name (spr_crop_tXX_slot_name).
+        string expectedPath = "Crops/spr_crop_t" + tierIndex.ToString("00") + "_" + localIndex + "_" + normalizedCropName;
+        Sprite exact = Resources.Load<Sprite>(expectedPath);
+        if (exact != null)
+        {
+            _resolvedCropSpriteCache[normalizedCropName] = exact;
+            return exact;
+        }
+
+        // Secondary path: fuzzy name match over all delivered crop sprites.
+        if (_resourceCropSprites == null)
+        {
+            _resourceCropSprites = Resources.LoadAll<Sprite>("Crops");
+        }
+
+        Sprite best = null;
+        for (int i = 0; i < _resourceCropSprites.Length; i++)
+        {
+            Sprite candidate = _resourceCropSprites[i];
+            if (candidate == null)
+                continue;
+
+            string candidateKey = NormalizeAssetToken(candidate.name);
+            if (candidateKey == normalizedCropName ||
+                candidateKey.EndsWith(normalizedCropName) ||
+                candidateKey.Contains(normalizedCropName))
+            {
+                best = candidate;
+                break;
+            }
+        }
+
+        // Final fallback: reuse closest lower-tier sprite that shares the same local slot index.
+        if (best == null)
+        {
+            for (int fallbackTier = tierIndex - 1; fallbackTier >= 0 && best == null; fallbackTier--)
+            {
+                string slotPrefix = "sprcropt" + fallbackTier.ToString("00") + localIndex;
+                for (int i = 0; i < _resourceCropSprites.Length; i++)
+                {
+                    Sprite candidate = _resourceCropSprites[i];
+                    if (candidate == null)
+                        continue;
+
+                    string candidateKey = NormalizeAssetToken(candidate.name);
+                    if (candidateKey.StartsWith(slotPrefix))
+                    {
+                        best = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        _resolvedCropSpriteCache[normalizedCropName] = best;
+        return best;
+    }
+
+    private string NormalizeAssetToken(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        StringBuilder sb = new StringBuilder(value.Length);
+        string lower = value.ToLowerInvariant();
+
+        for (int i = 0; i < lower.Length; i++)
+        {
+            char ch = lower[i];
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(ch);
+            }
+        }
+
+        return sb.ToString();
     }
 }

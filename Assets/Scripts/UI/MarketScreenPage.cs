@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -21,6 +22,8 @@ public class MarketScreenPage : MonoBehaviour
     private float _stateRefreshTimer;
     private bool _built;
     private int _openMultiplier = 1;
+    private Sprite[] _crateSprites;
+    private readonly Dictionary<string, Sprite> _crateSpriteCache = new Dictionary<string, Sprite>();
 
     private void Start()
     {
@@ -292,7 +295,18 @@ public class MarketScreenPage : MonoBehaviour
         GameObject iconObj = new GameObject("Icon", typeof(RectTransform));
         iconObj.transform.SetParent(card.transform, false);
         Image icon = iconObj.AddComponent<Image>();
-        icon.color = GetRarityColor(crate.rarity);
+
+        Sprite crateSprite = ResolveCrateSprite(crate);
+        if (crateSprite != null)
+        {
+            icon.sprite = crateSprite;
+            icon.color = Color.white;
+            icon.preserveAspect = true;
+        }
+        else
+        {
+            icon.color = GetRarityColor(crate.rarity);
+        }
 
         RectTransform iconRt = iconObj.GetComponent<RectTransform>();
         iconRt.anchorMin = new Vector2(0f, 0.5f);
@@ -468,6 +482,127 @@ public class MarketScreenPage : MonoBehaviour
             case CrateRarity.Diamond: return 4;
             default: return 99;
         }
+    }
+
+    private Sprite ResolveCrateSprite(CrateData crate)
+    {
+        if (crate == null)
+            return null;
+
+        EnsureCrateSpritesLoaded();
+        if (_crateSprites == null || _crateSprites.Length == 0)
+            return null;
+
+        string crateKey = NormalizeKey(crate.crateName);
+        if (_crateSpriteCache.TryGetValue(crateKey, out Sprite cached))
+            return cached;
+
+        Sprite found = null;
+
+        // First, direct name match against delivered sprite names.
+        for (int i = 0; i < _crateSprites.Length; i++)
+        {
+            Sprite candidate = _crateSprites[i];
+            if (candidate == null)
+                continue;
+
+            string candidateKey = NormalizeKey(candidate.name);
+            if (candidateKey == crateKey ||
+                candidateKey.EndsWith(crateKey) ||
+                crateKey.EndsWith(candidateKey) ||
+                candidateKey.Contains(crateKey) ||
+                crateKey.Contains(candidateKey))
+            {
+                found = candidate;
+                break;
+            }
+        }
+
+        // Then, rarity/name keyword fallback.
+        if (found == null)
+        {
+            if (crateKey.Contains("gunluk")) found = FindCrateSpriteByKeyword("gunluk");
+            else if (crateKey.Contains("bronz")) found = FindCrateSpriteByKeyword("bronz");
+            else if (crateKey.Contains("gumus")) found = FindCrateSpriteByKeyword("gumus");
+            else if (crateKey.Contains("altin")) found = FindCrateSpriteByKeyword("altin");
+            else if (crateKey.Contains("elmas")) found = FindCrateSpriteByKeyword("elmas");
+            else if (crateKey.Contains("usta")) found = FindCrateSpriteByKeyword("usta");
+            else if (crateKey.Contains("kozmik")) found = FindCrateSpriteByKeyword("kozmik");
+        }
+
+        if (found == null)
+        {
+            switch (crate.rarity)
+            {
+                case CrateRarity.Daily:
+                    found = FindCrateSpriteByKeyword("gunluk");
+                    break;
+                case CrateRarity.Bronze:
+                    found = FindCrateSpriteByKeyword("bronz");
+                    break;
+                case CrateRarity.Silver:
+                    found = FindCrateSpriteByKeyword("gumus");
+                    break;
+                case CrateRarity.Gold:
+                    found = FindCrateSpriteByKeyword("altin") ?? FindCrateSpriteByKeyword("usta");
+                    break;
+                case CrateRarity.Diamond:
+                    found = FindCrateSpriteByKeyword("elmas") ?? FindCrateSpriteByKeyword("kozmik");
+                    break;
+            }
+        }
+
+        _crateSpriteCache[crateKey] = found;
+        return found;
+    }
+
+    private void EnsureCrateSpritesLoaded()
+    {
+        if (_crateSprites == null)
+        {
+            _crateSprites = Resources.LoadAll<Sprite>("Crates");
+        }
+    }
+
+    private Sprite FindCrateSpriteByKeyword(string keyword)
+    {
+        if (string.IsNullOrEmpty(keyword) || _crateSprites == null)
+            return null;
+
+        string key = NormalizeKey(keyword);
+        for (int i = 0; i < _crateSprites.Length; i++)
+        {
+            Sprite candidate = _crateSprites[i];
+            if (candidate == null)
+                continue;
+
+            if (NormalizeKey(candidate.name).Contains(key))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private string NormalizeKey(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return string.Empty;
+
+        StringBuilder sb = new StringBuilder(raw.Length);
+        string lower = raw.ToLowerInvariant();
+
+        for (int i = 0; i < lower.Length; i++)
+        {
+            char ch = lower[i];
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(ch);
+            }
+        }
+
+        return sb.ToString();
     }
 
     private Color GetCurrencyColor(CurrencyType currencyType, bool isDaily)

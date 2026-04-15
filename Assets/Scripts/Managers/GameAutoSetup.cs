@@ -78,8 +78,8 @@ public class GameAutoSetup : MonoBehaviour
         Camera cam = Camera.main;
         if (cam != null)
         {
-            // Static, zoomed-out overview for farm screen (no in-farm camera panning).
-            cam.orthographicSize = 8f;
+            // Keep farm focused around active area on portrait screens.
+            cam.orthographicSize = 6.2f;
 
             // Add CameraController if not already present
             CameraController cc = cam.GetComponent<CameraController>();

@@ -153,7 +153,7 @@ public class GridManager : MonoBehaviour
         {
             // All locked slots look the same (dark gray/neutral)
             // Removed the green "adjacent" highlight as requested
-            if (sr != null) sr.color = new Color(0.15f, 0.15f, 0.15f, 0.7f);
+            if (sr != null) sr.color = new Color(0.12f, 0.14f, 0.18f, 0.44f);
             
             if (dh != null) dh.enabled = false;
             slot.SetLocked(true);

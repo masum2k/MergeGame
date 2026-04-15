@@ -76,7 +76,7 @@ public class FarmCropInfoUI : MonoBehaviour
         if (_iconImage != null)
         {
             _iconImage.sprite = crop.cropSprite;
-            _iconImage.color = crop.cropColor;
+            _iconImage.color = IsCompositeCropSprite(crop.cropSprite) ? Color.white : crop.cropColor;
         }
 
         _panel.SetActive(true);
@@ -159,6 +159,7 @@ public class FarmCropInfoUI : MonoBehaviour
         iconObj.transform.SetParent(_panel.transform, false);
         _iconImage = iconObj.AddComponent<Image>();
         _iconImage.color = Color.white;
+        _iconImage.preserveAspect = true;
 
         RectTransform iconRt = iconObj.GetComponent<RectTransform>();
         iconRt.anchorMin = new Vector2(0f, 1f);
@@ -287,5 +288,11 @@ public class FarmCropInfoUI : MonoBehaviour
 
         int tierNo = (int)crop.tier + 1;
         return crop.itemName + " T" + tierNo + " besinidir. Pasif coin akisini destekler.";
+    }
+
+    private static bool IsCompositeCropSprite(Sprite sprite)
+    {
+        return sprite != null
+            && sprite.name.StartsWith("spr_crop_", System.StringComparison.OrdinalIgnoreCase);
     }
 }

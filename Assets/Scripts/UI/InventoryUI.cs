@@ -339,6 +339,7 @@ public class InventoryUI : MonoBehaviour
         Image iconImg = iconObj.AddComponent<Image>();
         iconImg.sprite = item.icon;
         iconImg.color = item.itemColor;
+        iconImg.preserveAspect = true;
         RectTransform iconRt = iconObj.GetComponent<RectTransform>();
         iconRt.anchorMin = new Vector2(0.5f, 0.5f); iconRt.anchorMax = new Vector2(0.5f, 0.5f);
         iconRt.sizeDelta = new Vector2(80f, 80f);
