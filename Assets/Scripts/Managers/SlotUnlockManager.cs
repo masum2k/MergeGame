@@ -467,7 +467,8 @@ public class SlotUnlockManager : MonoBehaviour
         // Block unlocking border slots
         if (GridManager.Instance != null)
         {
-            if (y <= 0 || y >= GridManager.Instance.rows - 1)
+            int borderRows = Mathf.Max(0, GridManager.Instance.borderRows);
+            if (borderRows > 0 && (y < borderRows || y >= GridManager.Instance.rows - borderRows))
             {
                 return false;
             }

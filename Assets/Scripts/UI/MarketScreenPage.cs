@@ -6,6 +6,8 @@ using TMPro;
 
 public class MarketScreenPage : MonoBehaviour
 {
+    private const string MarketBackgroundResourcePath = "Market/1-marketbg";
+
     private class ChestCardRef
     {
         public CrateData crate;
@@ -24,6 +26,7 @@ public class MarketScreenPage : MonoBehaviour
     private int _openMultiplier = 1;
     private Sprite[] _crateSprites;
     private readonly Dictionary<string, Sprite> _crateSpriteCache = new Dictionary<string, Sprite>();
+    private Sprite _marketBackgroundSprite;
 
     private void Start()
     {
@@ -68,13 +71,27 @@ public class MarketScreenPage : MonoBehaviour
 
         Image bg = gameObject.GetComponent<Image>();
         if (bg == null) bg = gameObject.AddComponent<Image>();
-        bg.color = new Color(0.05f, 0.08f, 0.12f, 0.96f);
+        _marketBackgroundSprite = LoadSpriteResource(MarketBackgroundResourcePath);
+        if (_marketBackgroundSprite != null)
+        {
+            bg.sprite = _marketBackgroundSprite;
+            bg.type = Image.Type.Simple;
+            bg.preserveAspect = false;
+            bg.color = Color.white;
+        }
+        else
+        {
+            bg.sprite = null;
+            bg.color = new Color(0.05f, 0.08f, 0.12f, 0.96f);
+        }
         bg.raycastTarget = true;
 
         GameObject panel = new GameObject("MarketPanel", typeof(RectTransform));
         panel.transform.SetParent(root, false);
         Image panelBg = panel.AddComponent<Image>();
-        panelBg.color = new Color(0.09f, 0.13f, 0.2f, 0.96f);
+        panelBg.color = _marketBackgroundSprite != null
+            ? new Color(0.06f, 0.09f, 0.15f, 0.78f)
+            : new Color(0.09f, 0.13f, 0.2f, 0.96f);
 
         RectTransform panelRt = panel.GetComponent<RectTransform>();
         panelRt.anchorMin = new Vector2(0.07f, 0.08f);
@@ -561,6 +578,27 @@ public class MarketScreenPage : MonoBehaviour
 
         _crateSpriteCache[crateKey] = found;
         return found;
+    }
+
+    private static Sprite LoadSpriteResource(string path)
+    {
+        Sprite sprite = Resources.Load<Sprite>(path);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        Texture2D texture = Resources.Load<Texture2D>(path);
+        if (texture == null)
+        {
+            return null;
+        }
+
+        return Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f);
     }
 
     private void EnsureCrateSpritesLoaded()

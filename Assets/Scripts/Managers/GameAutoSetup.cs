@@ -3,8 +3,10 @@ using UnityEngine;
 public class GameAutoSetup : MonoBehaviour
 {
     private const string FarmLayoutVersionKey = "FarmLayoutVersion";
-    private const int CurrentFarmLayoutVersion = 4;
-    private const string FarmBackgroundResourcePath = "Farm/ANAMENU-Background";
+    private const int CurrentFarmLayoutVersion = 8;
+    private const string FarmBackgroundResourcePath = "Farm/background-main2";
+    private const string FarmBackgroundAltResourcePath = "Farm/backgroun-main2";
+    private const string FarmBackgroundFallbackResourcePath = "Farm/background-main";
     private const string FarmBackgroundObjectName = "FarmBackground_Auto";
     private const int FarmBackgroundSortingOrder = -500;
     private const float FarmBackgroundOffsetX = 0f;
@@ -12,25 +14,28 @@ public class GameAutoSetup : MonoBehaviour
     private const string ManualCompensationKey = "ManualCompensation_20260416";
     private const int ManualCompensationCoin = 4000;
     private const int ManualCompensationGem = 200;
-    // Optical center nudge: slightly right looks more centered with this artwork framing.
+    // Optical center nudge for farm background framing.
     private const float FarmBackgroundVisualNudgeX = 0.00f;
 
-    private const int FarmBoardColumns = 8;
-    private const int FarmBoardRows = 11;
-    private const int FarmInitialUnlockColumns = 8;
-    private const int FarmInitialUnlockRows = 9;
+    private const int FarmPlayableColumns = 8;
+    private const int FarmPlayableRows = 11;
+    private const int FarmBorderRows = 0;
+    private const int FarmBoardColumns = FarmPlayableColumns;
+    private const int FarmBoardRows = FarmPlayableRows + (FarmBorderRows * 2);
+    private const int FarmInitialUnlockColumns = FarmPlayableColumns;
+    private const int FarmInitialUnlockRows = FarmPlayableRows;
     private const float FarmGridOffsetX = 0f;
     private const float FarmGridOffsetY = 0.04f;
 
-    // Pixel bounds (source texture coordinates, top-left origin) for the playable 8x11 marble board.
-    // IMPORTANT: These were measured on the original ANAMENU-Background source size.
+    // Pixel bounds (source texture coordinates, top-left origin) for the full marble board.
+    // IMPORTANT: These were measured on the background-main source size.
     // Unity may downscale imported textures at runtime (maxTextureSize), so normalize against
     // this reference size instead of the runtime texture width/height.
-    private const float FarmBoardSourceTextureWidthPx = 1568f;
-    private const float FarmBoardSourceTextureHeightPx = 2676f;
-    private const float FarmBoardLeftPx = 156f;
-    private const float FarmBoardRightPx = 1410f;
-    private const float FarmBoardTopPx = 389f;
+    private const float FarmBoardSourceTextureWidthPx = 1504f;
+    private const float FarmBoardSourceTextureHeightPx = 2674f;
+    private const float FarmBoardLeftPx = 119f;
+    private const float FarmBoardRightPx = 1378f;
+    private const float FarmBoardTopPx = 399f;
     private const float FarmBoardBottomPx = 2110f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -107,19 +112,22 @@ public class GameAutoSetup : MonoBehaviour
 
         bool hasBoardRect = TryGetFarmBoardWorldRect(farmBackgroundRenderer, out Vector2 boardCenter, out float boardWidth, out float boardHeight);
 
-        float spacing = 0.7f;
+        float slotStepX = 0.7f;
+        float slotStepY = 0.7f;
         if (hasBoardRect)
         {
-            float cellWidth = boardWidth / FarmBoardColumns;
-            float cellHeight = boardHeight / FarmBoardRows;
-            spacing = Mathf.Min(cellWidth, cellHeight);
+            slotStepX = boardWidth / FarmBoardColumns;
+            slotStepY = boardHeight / FarmBoardRows;
         }
 
         if (gridManager != null)
         {
             gridManager.columns = FarmBoardColumns;
             gridManager.rows = FarmBoardRows;
-            gridManager.spacing = spacing;
+            gridManager.borderRows = FarmBorderRows;
+            gridManager.spacing = Mathf.Min(slotStepX, slotStepY);
+            gridManager.spacingX = slotStepX;
+            gridManager.spacingY = slotStepY;
 
             if (hasBoardRect)
             {
@@ -132,8 +140,13 @@ public class GameAutoSetup : MonoBehaviour
 
         int unlockMinCol = 0;
         int unlockMaxCol = FarmBoardColumns - 1;
-        int unlockMinRow = 1;
-        int unlockMaxRow = FarmBoardRows - 2;
+        int unlockMinRow = FarmBorderRows;
+        int unlockMaxRow = FarmBoardRows - 1 - FarmBorderRows;
+        if (unlockMaxRow < unlockMinRow)
+        {
+            unlockMinRow = 0;
+            unlockMaxRow = FarmBoardRows - 1;
+        }
 
         CenterStartPatchWithinLimits(
             FarmInitialUnlockColumns,
@@ -161,8 +174,8 @@ public class GameAutoSetup : MonoBehaviour
         // =============================================
         if (cam != null && cameraController != null)
         {
-            float halfW = (FarmBoardColumns - 1) * spacing * 0.5f;
-            float halfH = (FarmBoardRows - 1) * spacing * 0.5f;
+            float halfW = (FarmBoardColumns - 1) * slotStepX * 0.5f;
+            float halfH = (FarmBoardRows - 1) * slotStepY * 0.5f;
             float centerX = hasBoardRect ? boardCenter.x + FarmGridOffsetX : 0f;
             float centerY = hasBoardRect ? boardCenter.y + FarmGridOffsetY : 0f;
 
@@ -175,41 +188,24 @@ public class GameAutoSetup : MonoBehaviour
 
     private static SpriteRenderer EnsureFarmBackground(Camera cam)
     {
-        Sprite backgroundSprite = null;
-        Texture2D backgroundTexture = Resources.Load<Texture2D>(FarmBackgroundResourcePath);
-        if (backgroundTexture != null)
-        {
-            // Build a centered sprite so world placement is stable even if importer pivots vary.
-            backgroundSprite = Sprite.Create(
-                backgroundTexture,
-                new Rect(0f, 0f, backgroundTexture.width, backgroundTexture.height),
-                new Vector2(0.5f, 0.5f),
-                100f);
-        }
-        else
-        {
-            // Some imports expose only Sprite (e.g. multiple-sprite mode). In that case,
-            // rebuild a full-texture sprite so bounds/pivot stay stable for board mapping.
-            Sprite loadedSprite = Resources.Load<Sprite>(FarmBackgroundResourcePath);
-            if (loadedSprite != null && loadedSprite.texture != null)
-            {
-                Texture2D tex = loadedSprite.texture;
-                backgroundSprite = Sprite.Create(
-                    tex,
-                    new Rect(0f, 0f, tex.width, tex.height),
-                    new Vector2(0.5f, 0.5f),
-                    100f);
-            }
-            else
-            {
-                backgroundSprite = loadedSprite;
-            }
-        }
-
+        Sprite backgroundSprite = TryLoadFarmBackgroundSprite(out string loadedBackgroundPath);
         if (backgroundSprite == null)
         {
-            Debug.LogWarning("GameAutoSetup: Farm background sprite not found at Resources/" + FarmBackgroundResourcePath);
+            Debug.LogWarning(
+                "GameAutoSetup: Farm background sprite not found at Resources/"
+                + FarmBackgroundResourcePath
+                + " (alt: "
+                + FarmBackgroundAltResourcePath
+                + ")"
+                + " (fallback: "
+                + FarmBackgroundFallbackResourcePath
+                + ")");
             return null;
+        }
+
+        if (loadedBackgroundPath != FarmBackgroundResourcePath)
+        {
+            Debug.Log("GameAutoSetup: Using fallback farm background at Resources/" + loadedBackgroundPath);
         }
 
         GameObject backgroundObj = GameObject.Find(FarmBackgroundObjectName);
@@ -257,6 +253,51 @@ public class GameAutoSetup : MonoBehaviour
             FarmBackgroundOffsetY,
             0f);
         return backgroundRenderer;
+    }
+
+    private static Sprite TryLoadFarmBackgroundSprite(out string loadedPath)
+    {
+        string[] candidatePaths = { FarmBackgroundResourcePath, FarmBackgroundAltResourcePath, FarmBackgroundFallbackResourcePath };
+        for (int i = 0; i < candidatePaths.Length; i++)
+        {
+            string path = candidatePaths[i];
+
+            Texture2D backgroundTexture = Resources.Load<Texture2D>(path);
+            if (backgroundTexture != null)
+            {
+                loadedPath = path;
+                return Sprite.Create(
+                    backgroundTexture,
+                    new Rect(0f, 0f, backgroundTexture.width, backgroundTexture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+
+            // Some imports expose only Sprite (e.g. multiple-sprite mode). In that case,
+            // rebuild a full-texture sprite so bounds/pivot stay stable for board mapping.
+            Sprite loadedSprite = Resources.Load<Sprite>(path);
+            if (loadedSprite == null)
+            {
+                continue;
+            }
+
+            if (loadedSprite.texture != null)
+            {
+                Texture2D tex = loadedSprite.texture;
+                loadedPath = path;
+                return Sprite.Create(
+                    tex,
+                    new Rect(0f, 0f, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f);
+            }
+
+            loadedPath = path;
+            return loadedSprite;
+        }
+
+        loadedPath = FarmBackgroundResourcePath;
+        return null;
     }
 
     private static bool TryGetFarmBoardWorldRect(SpriteRenderer backgroundRenderer, out Vector2 center, out float width, out float height)

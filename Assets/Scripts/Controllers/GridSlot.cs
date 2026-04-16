@@ -28,9 +28,9 @@ public class GridSlot : MonoBehaviour
     private const float ItemBackgroundTargetWorldSize = 0.62f;
     private const float ItemIconFallbackScale = 1.5f;
     private const float ItemBackgroundFallbackScale = 15f;
-    private const float SlotBaseFillMultiplier = 1.10f;
+    private const float SlotBaseFillMultiplier = 1.00f;
     private static readonly Vector2 SlotBaseNormalizedSize = Vector2.one * SlotBaseFillMultiplier;
-    private const string SlotBaseResourcePath = "Slot/toprak4";
+    private const string SlotBaseResourcePath = "Slot/toprak5";
 
     private static bool _slotBaseSpriteLoaded;
     private static Sprite _slotBaseSprite;
@@ -229,7 +229,7 @@ public class GridSlot : MonoBehaviour
         _slotBaseSprite = Resources.Load<Sprite>(SlotBaseResourcePath);
         if (_slotBaseSprite == null)
         {
-            Debug.LogWarning("GridSlot could not load required sprite at Resources/Slot/toprak4.");
+            Debug.LogWarning("GridSlot could not load required sprite at Resources/Slot/toprak5.");
         }
 
         return _slotBaseSprite;
@@ -246,6 +246,20 @@ public class GridSlot : MonoBehaviour
         // Normalize slot visuals so very large source textures do not distort the grid.
         _backgroundRenderer.drawMode = SpriteDrawMode.Sliced;
         _backgroundRenderer.size = SlotBaseNormalizedSize;
+    }
+
+    public void SetBaseVisualSize(Vector2 normalizedSize)
+    {
+        if (_backgroundRenderer == null)
+            return;
+
+        if (!IsSlotBaseSprite(_backgroundRenderer.sprite))
+            return;
+
+        _backgroundRenderer.drawMode = SpriteDrawMode.Sliced;
+        _backgroundRenderer.size = new Vector2(
+            Mathf.Max(0.0001f, normalizedSize.x),
+            Mathf.Max(0.0001f, normalizedSize.y));
     }
 
     private void ApplySpriteScale(SpriteRenderer renderer, float targetWorldSize, float fallbackScale)
@@ -286,6 +300,7 @@ public class GridSlot : MonoBehaviour
         if (_slotBaseSprite != null && sprite == _slotBaseSprite)
             return true;
 
-        return sprite.name.StartsWith("toprak4", System.StringComparison.OrdinalIgnoreCase);
+        return sprite.name.StartsWith("toprak5", System.StringComparison.OrdinalIgnoreCase)
+            || sprite.name.StartsWith("toprak4", System.StringComparison.OrdinalIgnoreCase);
     }
 }

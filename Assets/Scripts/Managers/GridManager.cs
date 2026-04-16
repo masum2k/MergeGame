@@ -7,7 +7,13 @@ public class GridManager : MonoBehaviour
     [Header("Grid Settings")]
     public int columns = 5;
     public int rows = 5;
+    [Tooltip("Number of non-playable border rows at top and bottom. Set 0 for no border rows.")]
+    public int borderRows = 1;
     public float spacing = 0.85f;
+    [Tooltip("Horizontal slot-to-slot distance in world units. Uses 'spacing' when <= 0.")]
+    public float spacingX = 0f;
+    [Tooltip("Vertical slot-to-slot distance in world units. Uses 'spacing' when <= 0.")]
+    public float spacingY = 0f;
 
     [Header("References")]
     public GameObject slotPrefab;
@@ -38,7 +44,11 @@ public class GridManager : MonoBehaviour
 
     private void Start()
     {
-        _useThemedFarmBackground = Resources.Load<Texture2D>("Farm/ANAMENU-Background") != null;
+        _useThemedFarmBackground =
+            Resources.Load<Texture2D>("Farm/background-main2") != null ||
+            Resources.Load<Texture2D>("Farm/backgroun-main2") != null ||
+            Resources.Load<Texture2D>("Farm/background-main") != null ||
+            Resources.Load<Texture2D>("Farm/ANAMENU-Background") != null;
 
         GenerateGrid();
 
@@ -70,12 +80,22 @@ public class GridManager : MonoBehaviour
         if (gridParent == null) 
             gridParent = this.transform;
 
+        float stepX = spacingX > 0f ? spacingX : spacing;
+        float stepY = spacingY > 0f ? spacingY : spacing;
+        float visualScale = Mathf.Min(stepX, stepY);
+        if (visualScale <= 0f)
+        {
+            visualScale = 0.0001f;
+        }
+
         _grid = new GridSlot[columns, rows];
 
         // Offset to keep the whole grid centered based on sizes
-        float offsetX = (columns - 1) * spacing / 2f;
-        float offsetY = (rows - 1) * spacing / 2f;
+        float offsetX = (columns - 1) * stepX / 2f;
+        float offsetY = (rows - 1) * stepY / 2f;
         Vector3 origin = gridParent.position;
+        Vector2 baseSizeInSlotUnits = new Vector2(stepX / visualScale, stepY / visualScale);
+        int clampedBorderRows = Mathf.Clamp(borderRows, 0, Mathf.Max(0, rows / 2));
 
         for (int x = 0; x < columns; x++)
         {
@@ -83,16 +103,14 @@ public class GridManager : MonoBehaviour
             {
                 // Calculate position for current iteration (world-space, aligned around grid parent origin)
                 Vector2 spawnPos = new Vector2(
-                    origin.x + (x * spacing) - offsetX,
-                    origin.y + (y * spacing) - offsetY);
+                    origin.x + (x * stepX) - offsetX,
+                    origin.y + (y * stepY) - offsetY);
 
                 // Instantiate prefab
                 GameObject newSlotObj = Instantiate(slotPrefab, spawnPos, Quaternion.identity, gridParent);
                 newSlotObj.name = $"Slot_{x}_{y}";
 
-                // Scale the slot to be slightly smaller than spacing (90%) 
-                // This creates the "grid line" effect by revealing the dark background
-                float visualScale = spacing * 0.9f;
+                // Keep slot transform uniform to avoid stretching child crop visuals.
                 newSlotObj.transform.localScale = new Vector3(visualScale, visualScale, 1f);
 
                 // Make sure the prefab has a GridSlot component attached
@@ -108,9 +126,8 @@ public class GridManager : MonoBehaviour
                 {
                     col = newSlotObj.AddComponent<BoxCollider2D>();
                 }
-                // Size collider to match the full spacing area 
-                // Math: visualScale * colliderSize = spacing -> colliderSize = spacing / visualScale
-                col.size = new Vector2(spacing / visualScale, spacing / visualScale);
+                // Size collider to match the full cell dimensions.
+                col.size = new Vector2(stepX / visualScale, stepY / visualScale);
 
                 if (newSlotObj.GetComponent<DragHandler>() == null)
                 {
@@ -119,13 +136,13 @@ public class GridManager : MonoBehaviour
 
                 // Initialize slot state
                 slotComponent.Initialize(x, y);
+                slotComponent.SetBaseVisualSize(baseSizeInSlotUnits);
                 _grid[x, y] = slotComponent;
 
-                // Keep only top/bottom rows as hard border.
-                if (y == 0 || y == rows - 1)
-                {
-                    slotComponent.IsBorder = true;
-                }
+                // Optional hard-border rows (top + bottom).
+                bool isBorderRow = clampedBorderRows > 0
+                    && (y < clampedBorderRows || y >= rows - clampedBorderRows);
+                slotComponent.IsBorder = isBorderRow;
 
                 // Apply lock/unlock visuals
                 ApplySlotLockState(slotComponent, x, y);
